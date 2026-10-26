@@ -6,6 +6,16 @@
 - Write new instances: change the numbers, the code, the constants and the structure, but keep the format and difficulty. Add harder variants that combine two ideas.
 - Paraphrase textbook statements when summarising official problems (master reference, section D). Never reproduce long copyrighted text.
 
+## Teach before you test (coverage rule)
+- Plan each unit as a **problem-type list first**: write the methods M1…Mn (one per problem type), then write the problems, tagging each with `data-uses`.
+- Every problem type needs a method step, including the easy-to-forget ones:
+  - the reverse direction ("now write the assembly/code", not just "read it");
+  - definition and "why" questions (toolchain, ISA vs. microarchitecture, why an idiom is used);
+  - edge cases and tricks (do-while runs once, a dropped loop guard, division bias, scale limits, sign extension);
+  - evaluation and tracing questions ("give f(7)", "stack depth in bytes").
+- The unit's "Learn it" notes must contain the facts each method relies on.
+- After writing a unit, do an **audit pass**: for each problem, ask "could a student who has read only this unit's Learn-it and methods solve this?" If not, add the missing teaching, or move the problem.
+
 ## Every answer must be verified
 - Work every problem yourself before writing the solution. For anything computable, compute it: write a throwaway Python check (arithmetic, hex, bit operations, struct offsets, loop outputs for 2–3 inputs) in the scratchpad.
 - Check that each problem has exactly one intended answer, or list all the accepted answers.

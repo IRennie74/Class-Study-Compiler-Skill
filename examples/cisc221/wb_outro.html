@@ -1,16 +1,16 @@
 <div class="pb unit-head"><h1>Review — Mixed quiz-style set</h1><div class="sub">Every unit mixed together, as on the real quiz. Aim for about 35 minutes, showing all work.</div></div>
 
-<div class="q"><span class="qn">R1.</span><span class="lvl e">easy</span> M[0x200] = 0x7, M[0x208] = 0x3, M[0x210] = 0x9; %rax = 0x200, %rcx = 0x1. Give the value of (a) <code>8(%rax)</code>, (b) <code>0x200(,%rcx,8)</code>, (c) <code>$0x210</code>, (d) <code>(%rax,%rcx,16)</code>.
+<div class="q"><span class="qn">R1.</span><span class="uses">Uses U1 M5</span><span class="lvl e">easy</span> M[0x200] = 0x7, M[0x208] = 0x3, M[0x210] = 0x9; %rax = 0x200, %rcx = 0x1. Give the value of (a) <code>8(%rax)</code>, (b) <code>0x200(,%rcx,8)</code>, (c) <code>$0x210</code>, (d) <code>(%rax,%rcx,16)</code>.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">R2.</span><span class="lvl m">medium</span> Here x is in %rdi. What does this compute? Explain each instruction's effect on the flags.
+<div class="q"><span class="qn">R2.</span><span class="uses">Uses U3 M2 · U3 M6</span><span class="lvl m">medium</span> Here x is in %rdi. What does this compute? Explain each instruction's effect on the flags.
 <pre>f:  movq  %rdi, %rax
     negq  %rax
     cmovl %rdi, %rax
     ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">R3.</span><span class="lvl h">harder</span> Here a is a long * in %rdi, n in %rsi and t in %rdx. Write the C, and name the loop translation.
+<div class="q"><span class="qn">R3.</span><span class="uses">Uses U4 M1 · U4 M2 · U6 M9</span><span class="lvl h">harder</span> Here a is a long * in %rdi, n in %rsi and t in %rdx. Write the C, and name the loop translation.
 <pre>cnt:   movl  $0, %eax
        testq %rsi, %rsi
        jle   .L1
@@ -24,7 +24,7 @@
 .L1:   ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">R4.</span><span class="lvl m">medium</span> <code>struct node { long v; struct node *next; };</code> Write the C, and say what %rbx holds and why it must be callee-saved.
+<div class="q"><span class="qn">R4.</span><span class="uses">Uses U5 M7 · U7 M4</span><span class="lvl m">medium</span> <code>struct node { long v; struct node *next; };</code> Write the C, and say what %rbx holds and why it must be callee-saved.
 <pre>sumlist:  movl  $0, %eax
           testq %rdi, %rdi
           je    .L4
@@ -37,7 +37,7 @@
 .L4:      ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">R5.</span><span class="lvl m">medium</span> Here x is in %rdi and y in %rsi. Write the switch.
+<div class="q"><span class="qn">R5.</span><span class="uses">Uses U4 M6 · M7 · M8</span><span class="lvl m">medium</span> Here x is in %rdi and y in %rsi. Write the switch.
 <pre>sw:  cmpq $3, %rdi ; ja .Ld ; jmp *.T(,%rdi,8)
 .T:  .quad .L0, .L1, .Ld, .L1
 .L0: movl $10, %eax ; ret
@@ -45,18 +45,20 @@
 .Ld: movq %rsi, %rax ; ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">R6.</span><span class="lvl m">medium</span> <code>struct Q { char a; long b[2]; int c; } q[3];</code> Give sizeof(struct Q) and the address of q[1].c relative to q. Then write the assembly for <code>int getqc(long i) { return q[i].c; }</code>.
+<div class="q"><span class="qn">R6.</span><span class="uses">Uses U7 M1 · M3 · M4</span><span class="lvl m">medium</span> <code>struct Q { char a; long b[2]; int c; } q[3];</code> Give sizeof(struct Q) and the address of q[1].c relative to q. Then write the assembly for <code>int getqc(long i) { return q[i].c; }</code>.
 <div class="work m"></div></div>
 
 <div class="pb sol-head">Review solutions</div>
-<div class="sol"><span class="qn">R1</span>
+<div class="sol"><span class="qn">R1</span><span class="uses">Uses U1 M5</span>
 <pre>(a) Addr = 0x200 + 8 = 0x208 → 0x3     (b) 0x200 + 8·1 = 0x208 → 0x3
-(c) immediate → 0x210                  (d) ILLEGAL: scale 16 is not allowed (must be 1, 2, 4 or 8)</pre></div>
-<div class="sol"><span class="qn">R2</span>
-<pre>rax = x ; negq → rax = −x and sets the flags from −x: SF = 1 when −x &lt; 0 (i.e. x &gt; 0), OF = 0 (except x = LONG_MIN)
+(c) immediate → 0x210
+(d) ILLEGAL: scale 16 is not allowed (must be 1, 2, 4 or 8)</pre></div>
+<div class="sol"><span class="qn">R2</span><span class="uses">Uses U3 M2 · U3 M6</span>
+<pre>rax = x ; negq → rax = −x, and sets the flags from −x:
+    SF = 1 when −x &lt; 0 (i.e. x &gt; 0); OF = 0 (except x = LONG_MIN)
 cmovl (SF^OF): if −x &lt; 0, i.e. x &gt; 0, rax = x
 Result: x &gt; 0 ? x : −x  =  |x|  (absolute value; LONG_MIN stays LONG_MIN)</pre></div>
-<div class="sol"><span class="qn">R3</span>
+<div class="sol"><span class="qn">R3</span><span class="uses">Uses U4 M1 · U4 M2 · U6 M9</span>
 <pre>Guarded-do: if n ≤ 0 skip; end = a + n (rcx = a + 8n); loop until the pointer reaches end.
 long cnt(long *a, long n, long t) {
   long c = 0;
@@ -64,22 +66,24 @@ long cnt(long *a, long n, long t) {
     if (*p == t) c++;
   return c;
 }
-It counts how many elements equal t. Note: cmpq %rdx,(%rdi) compares *p : t; jne skips the increment.</pre></div>
-<div class="sol"><span class="qn">R4</span>
+It counts how many elements equal t.
+Note: cmpq %rdx,(%rdi) compares *p : t; jne skips the increment.</pre></div>
+<div class="sol"><span class="qn">R4</span><span class="uses">Uses U5 M7 · U7 M4</span>
 <pre>long sumlist(struct node *n) {
   if (n == 0) return 0;
   return n-&gt;v + sumlist(n-&gt;next);
 }
-%rbx holds n-&gt;v (offset 0). It is needed AFTER the recursive call, so it must be in a callee-saved
-register: the recursive call promises to preserve %rbx. next is at offset 8, and it becomes the argument.</pre></div>
-<div class="sol"><span class="qn">R5</span>
+%rbx holds n-&gt;v (offset 0). It is needed AFTER the recursive call, so it must be
+in a callee-saved register (the call promises to preserve %rbx).
+next is at offset 8, and it becomes the argument.</pre></div>
+<div class="sol"><span class="qn">R5</span><span class="uses">Uses U4 M6 · M7 · M8</span>
 <pre>index = case (no offset), max 3
 switch (x) {
   case 0:          return 10;
   case 1: case 3:  return 5*y;
   default:         return y;      // x = 2, x &lt; 0, x &gt; 3
 }</pre></div>
-<div class="sol"><span class="qn">R6</span>
+<div class="sol"><span class="qn">R6</span><span class="uses">Uses U7 M1 · M3 · M4</span>
 <pre>a@0, b@8 (pad 7), b ends at 24, c@24, end 28 → K = 8 → sizeof = 32
 &amp;q[1].c = q + 32 + 24 = q + 56
 getqc:  salq $5, %rdi              # 32i

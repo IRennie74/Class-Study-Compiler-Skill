@@ -1,3 +1,7 @@
 .DS_Store
 __pycache__/
 *.pdf
+examples/*/mock_test.html
+examples/*/mock_key.html
+examples/*/workbook.html
+examples/*/style.css

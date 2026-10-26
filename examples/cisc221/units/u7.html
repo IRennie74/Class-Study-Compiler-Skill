@@ -1,14 +1,16 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — struct layout and access</h4>
-<ol>
-<li>Make a <b>layout table</b>: field | size | alignment (= size for primitives; for an array, the element size; for a nested struct, its K) | offset | padding before it.</li>
-<li>Walk the fields in order. Each offset = the next multiple of that field's alignment at or after the current end.</li>
-<li><b>K</b> = the largest alignment of any field. sizeof = the end, rounded up to a multiple of K (end padding).</li>
-<li><b>Minimise:</b> sort the fields by alignment, largest first, then recompute.</li>
-<li><b>Assembly → struct:</b> each <code>k(%rdi)</code> is a field at offset k. The instruction size gives the field's size (movq = 8, movl/movslq = 4, movzwl/movw = 2, movzbl/movb = 1). A <code>movq k(%rdi),%rdi</code> followed by more <code>(%rdi)</code> accesses means you are following a pointer.</li>
-<li><b>Unions:</b> size = the largest member, rounded up to the union's alignment. All offsets are 0.</li>
-<li><b>FP:</b> count the FP args in %xmm0.. separately from the integer args in %rdi... The result is in %xmm0. s = single (float), d = double, p = packed.</li>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>Struct layout table.</b> Columns: field | size | alignment | offset | padding before. Each offset = the next multiple of the field's alignment (array → element size). K = the largest alignment. sizeof = the end, rounded up to a multiple of K.</li>
+<li data-m="M2"><b>Minimise struct size.</b> Reorder the fields by alignment, largest first, then recompute with the layout table.</li>
+<li data-m="M3"><b>Arrays of structs.</b> &amp;a[i].f = a + i·sizeof(struct) + offset(f). sizeof already includes the end padding, so every element is aligned.</li>
+<li data-m="M4"><b>Writing struct access in assembly.</b> A field is <code>offset(%reg)</code>. Following a pointer field means <code>movq off(%rdi),%rax</code> then access through <code>(%rax)</code>. Match the instruction to the field's size and sign (int → long uses movslq; short → movzwl/movswl). For array elements use <code>disp(,%idx,scale)</code> after computing i·sizeof.</li>
+<li data-m="M5"><b>Assembly → struct.</b> Each <code>k(%rdi)</code> is a field at offset k, and the instruction size gives the field size (movq 8, movl 4, movw/movzwl 2, movb 1). A loaded value that is then used as an address is a pointer field. Rebuild the struct(s) and the C statement.</li>
+<li data-m="M6"><b>Unions.</b> All fields at offset 0; size = the largest member, rounded up to the union's alignment. Writing one field and reading another reinterprets the bits.</li>
+<li data-m="M7"><b>Byte order.</b> x86 is little endian: the least significant byte is at the lowest address. List the bytes from the right end of the hex number. Big endian is the reverse.</li>
+<li data-m="M8"><b>Floating-point code.</b> FP args in %xmm0, %xmm1…, result in %xmm0, all caller-saved. Scalar ops: movss/addss… for float, movsd/addsd… for double. Integer and pointer args still use %rdi… . The return value must end up in %xmm0.</li>
 </ol></div>
+
 
 <div class="showwork"><h4>How to show your work: model answer</h4>
 <pre>struct S1 { char c; int i[2]; double v; };
@@ -24,19 +26,19 @@ Assembly → field: "movslq 16(%rdi),%rax" → a 4-byte signed field at offset 1
 <div class="deck"><b>Lecture must-knows (L15):</b> struct rec (offsets 0, 16, 24), get_ap, set_val, the S1/S2/S3 alignment examples, S4 vs S5 (saving space), U1 vs S1, the bit_float_t union, endianness, and the XMM rules with fadd/dadd/dincr.</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">7.1</span><span class="lvl m">medium</span> Give the layout table, K and sizeof for <code>struct A { short s; char c; long l; int i; char d; };</code>. Then reorder the fields to minimise the size.
+<div class="q" data-uses="M1 M2"><span class="qn">7.1</span><span class="lvl m">medium</span> Give the layout table, K and sizeof for <code>struct A { short s; char c; long l; int i; char d; };</code>. Then reorder the fields to minimise the size.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">7.2</span><span class="lvl m">medium</span> Give the layout table, K and sizeof for <code>struct B { char a[3]; double d; char *p; short t[2]; };</code>.
+<div class="q" data-uses="M1"><span class="qn">7.2</span><span class="lvl m">medium</span> Give the layout table, K and sizeof for <code>struct B { char a[3]; double d; char *p; short t[2]; };</code>.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">7.3</span><span class="lvl e">easy</span> <code>struct C { int x; char y; } c[4];</code>, with c at address A. Give sizeof(struct C), sizeof(c), and the address of c[2].y.
+<div class="q" data-uses="M1 M3"><span class="qn">7.3</span><span class="lvl e">easy</span> <code>struct C { int x; char y; } c[4];</code>, with c at address A. Give sizeof(struct C), sizeof(c), and the address of c[2].y.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">7.4</span><span class="lvl m">medium</span> <code>struct item { char tag; int count; long price; struct item *next; };</code> (a) Give the offsets and sizeof. (b) Write the assembly for <code>long f(struct item *p) { return p-&gt;count * p-&gt;next-&gt;price; }</code>. (c) Why is movslq needed?
+<div class="q" data-uses="M1 M4"><span class="qn">7.4</span><span class="lvl m">medium</span> <code>struct item { char tag; int count; long price; struct item *next; };</code> (a) Give the offsets and sizeof. (b) Write the assembly for <code>long f(struct item *p) { return p-&gt;count * p-&gt;next-&gt;price; }</code>. (c) Why is movslq needed?
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">7.5</span><span class="lvl h">harder</span> Recover the C statement and the two struct definitions from this assembly (p is in %rdi). All fields are int or pointers.
+<div class="q" data-uses="M5"><span class="qn">7.5</span><span class="lvl h">harder</span> Recover the C statement and the two struct definitions from this assembly (p is in %rdi). All fields are int or pointers.
 <pre>g:  movl 8(%rdi), %eax
     addl 12(%rdi), %eax
     movq (%rdi), %rdx
@@ -44,16 +46,16 @@ Assembly → field: "movslq 16(%rdi),%rax" → a 4-byte signed field at offset 1
     ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">7.6</span><span class="lvl e">easy</span> (a) sizeof <code>union U { short s[3]; long l; char c; }</code>. (b) sizeof a struct with the same fields. (c) Can you store into s and then read l meaningfully?
+<div class="q" data-uses="M6 M1"><span class="qn">7.6</span><span class="lvl e">easy</span> (a) sizeof <code>union U { short s[3]; long l; char c; }</code>. (b) sizeof a struct with the same fields. (c) Can you store into s and then read l meaningfully?
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">7.7</span><span class="lvl e">easy</span> <code>long v = 0x0102030405060708;</code> is stored at 0x600 on x86-64. List the bytes at 0x600–0x607. What is the char at 0x603? What would it be on a big-endian machine?
+<div class="q" data-uses="M7"><span class="qn">7.7</span><span class="lvl e">easy</span> <code>long v = 0x0102030405060708;</code> is stored at 0x600 on x86-64. List the bytes at 0x600–0x607. What is the char at 0x603? What would it be on a big-endian machine?
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">7.8</span><span class="lvl m">medium</span> (a) Where do the arguments of <code>double scale(double x, long n, float y, int *p)</code> arrive? (b) Write the assembly for <code>double add3(double a, double b, double c) { return a + b + c; }</code>. (c) Write the assembly for <code>float pf(float *p, float v) { *p += v; return v; }</code>.
+<div class="q" data-uses="M8"><span class="qn">7.8</span><span class="lvl m">medium</span> (a) Where do the arguments of <code>double scale(double x, long n, float y, int *p)</code> arrive? (b) Write the assembly for <code>double add3(double a, double b, double c) { return a + b + c; }</code>. (c) Write the assembly for <code>float pf(float *p, float v) { *p += v; return v; }</code>.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">7.9</span><span class="lvl m">medium</span> For <code>struct P { short a; double b; short c; } arr[5];</code>, write the assembly for <code>short get_c(long i) { return arr[i].c; }</code> (i in %rdi).
+<div class="q" data-uses="M1 M3 M4"><span class="qn">7.9</span><span class="lvl m">medium</span> For <code>struct P { short a; double b; short c; } arr[5];</code>, write the assembly for <code>short get_c(long i) { return arr[i].c; }</code> (i in %rdi).
 <div class="work s"></div></div>
 
 <!--SOLUTIONS-->
@@ -65,7 +67,8 @@ l      8     8      8       5 (3..7)
 i      4     4      16      —
 d      1     1      20      —
 end = 21 → K = 8 → round up to 24 (3 bytes of end padding).   sizeof = 24
-Minimal: long l; int i; short s; char c; char d; → 8 + 4 + 2 + 1 + 1 = 16 (already a multiple of 8).</pre></div>
+Minimal: long l; int i; short s; char c; char d;
+         → 8 + 4 + 2 + 1 + 1 = 16 (already a multiple of 8)</pre></div>
 
 <div class="sol"><span class="qn">7.2</span>
 <pre>a[3]  3  align 1  offset 0
@@ -98,11 +101,12 @@ void g(struct s *p) { p-&gt;ptr-&gt;v = p-&gt;a + p-&gt;b; }</pre></div>
 <div class="sol"><span class="qn">7.6</span>
 <pre>(a) the largest member is l = 8 bytes → sizeof = 8 (s[3] = 6 fits)
 (b) struct: s 0..5, l @8, c @16 → end 17 → K = 8 → 24
-(c) No meaningfully. All the fields share the same bytes, so reading l reinterprets the bits that
-    were written through s (and 2 of l's bytes were never set).</pre></div>
+(c) Not meaningfully. All the fields share the same bytes, so reading l
+    reinterprets the bits written through s (and 2 of l's bytes were never set).</pre></div>
 
 <div class="sol"><span class="qn">7.7</span>
-<pre>Little endian: 0x600: 08  0x601: 07  0x602: 06  0x603: 05  0x604: 04  0x605: 03  0x606: 02  0x607: 01
+<pre>Little endian: 0x600: 08  0x601: 07  0x602: 06  0x603: 05
+               0x604: 04  0x605: 03  0x606: 02  0x607: 01
 char at 0x603 = 0x05.   Big endian: 0x600 holds 01, …, so 0x603 would hold 0x04.</pre></div>
 
 <div class="sol"><span class="qn">7.8</span>

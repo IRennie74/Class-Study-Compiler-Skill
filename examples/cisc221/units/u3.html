@@ -1,18 +1,18 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — flags, comparisons, and if/else → C</h4>
-<ol>
-<li><b>Flags:</b> for <code>cmp b,a</code>, compute a − b <b>twice</b>: once as signed numbers (gives SF, ZF, OF) and once as unsigned (gives CF). CF = 1 when the unsigned a &lt; b (a borrow). OF = 1 when signed a − b falls outside the type's range.</li>
-<li><b>Jumps and sets:</b> read <code>cmp b,a ; jX L</code> as "if (a X b) goto L". Letters: g/l = signed; a/b = unsigned; e/ne = either.</li>
-<li><b>Types from compares:</b> the suffix gives the size (b char, w short, l int, q long/pointer). The jump or set letter gives signedness.</li>
-<li><b>if/else → C:</b>
-  <ol type="a"><li>Annotate the arithmetic, as in Unit 2.</li>
-  <li>Label each block: everything up to the first jump, then each label.</li>
-  <li>For each conditional jump, write the condition on <b>both</b> edges (the jump edge = the jump's condition; the fall-through edge = its negation).</li>
-  <li>The <b>fall-through condition</b> is the C <code>if</code> test (the compiler jumps over the then-block when the test is false).</li>
-  <li>A value computed before any test is the initial value (<code>val = …</code>). Each <code>ret</code> ends one path.</li>
-  <li>Fill the template, then test it with two inputs, one going down each path.</li></ol></li>
-<li><b>cmov:</b> the value already in %rax is the "default". <code>cmovX s,%rax</code> means "if X, use s instead". Both values are always computed.</li>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>Flags after cmp.</b> For <code>cmp b,a</code>, compute a − b twice. As <b>signed</b> numbers: ZF (zero), SF (negative), OF (result outside the type's range: pos − neg = neg, or neg − pos = pos). As <b>unsigned</b> numbers: CF = 1 if a &lt; b (a borrow).</li>
+<li data-m="M2"><b>Reading cmp/test + jump/set.</b> <code>cmp b,a ; jX L</code> = "if (a X b) goto L". g/l = signed, a/b = unsigned, e/ne = either. <code>testq r,r</code> compares r with 0 (je: r == 0, js: r &lt; 0, jg: r &gt; 0, jle: r ≤ 0). <code>testq $1,r ; jne</code> = r is odd.</li>
+<li data-m="M3"><b>Type and comparison from cmp + set.</b> The suffix and register give the size (b char, w short, l int, q long/pointer). The set letter gives signedness. Read the operands backwards: <code>cmp %rsi,%rdi ; setl</code> = a &lt; b.</li>
+<li data-m="M4"><b>C comparison → assembly.</b> <code>cmp b,a</code> (sized to the type) → <code>setX %al</code> (signed g/l…, unsigned a/b…) → <code>movzbl %al,%eax</code> → <code>ret</code>.</li>
+<li data-m="M5"><b>if / else-if → C.</b> (1) Annotate the arithmetic. (2) Label the blocks. (3) Write both edges of every conditional jump: the jump edge has its condition, the fall-through edge has the negation. (4) The <b>fall-through</b> condition is the C <code>if</code> test. (5) A value computed before the first test is the initial <code>val</code>. Each <code>ret</code> ends a path. (6) Test one input per path.</li>
+<li data-m="M6"><b>Reading cmov.</b> The value already in the destination is the <b>default</b>. <code>cmovX s,d</code> = "if X, use s instead". So the C is <code>X ? s-value : default</code>. Both values are always computed first.</li>
+<li data-m="M7"><b>When cmov cannot be used.</b> cmov evaluates <b>both</b> sides, so the compiler must branch instead if a side could fault (null dereference <code>p ? *p : 0</code>), has side effects (<code>x*=7</code>), or is expensive.</li>
+<li data-m="M8"><b>&amp;&amp; / || short-circuit.</b> Each operand of <code>&amp;&amp;</code> becomes its own test and jump to "done" (the second test is skipped if the first fails). Goto form: <code>if (!A) goto done; if (!B) goto done; body; done:</code>.</li>
+<li data-m="M9"><b>C → goto form → branch assembly.</b> <code>if (T) X; else Y;</code> → <code>if (!T) goto Else; X; goto Done; Else: Y; Done:</code>. In assembly: cmp, then jump on the <b>negated</b> condition to the else label. Each path ends in <code>ret</code> or jumps to Done.</li>
+<li data-m="M10"><b>Divide by 2<sup>k</sup> (bias idiom).</b> <code>leaq (2<sup>k</sup>−1)(%rdi) ; testq ; cmovns %rdi ; sarq $k</code> = x / 2<sup>k</sup>. The bias makes negative numbers round toward 0, as C requires. Name the operator <code>/</code> and explain each line.</li>
 </ol></div>
+
 
 <div class="showwork"><h4>How to show your work: model answer (3.18 style)</h4>
 <pre>Map: x → rdi, y → rsi, z → rdx
@@ -38,28 +38,28 @@ Check: x=−5,y=1,z=2 → asm falls through both tests → val = x·y = −5; th
 <div class="deck"><b>From the practice deck, also do:</b> Problem 11 (3.13 types/COMP), Problem 12 (3.16 &amp;&amp; branches), Problem 13 (3.18 nested if), Problem 14 (3.21 cmov), Problem 16 (3.20 divide by 8).</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">3.1</span><span class="lvl m">medium</span> Give ZF, SF, CF and OF, and say whether <code>jl</code>, <code>jb</code>, <code>ja</code> and <code>je</code> would be taken.
+<div class="q" data-uses="M1 M2"><span class="qn">3.1</span><span class="lvl m">medium</span> Give ZF, SF, CF and OF, and say whether <code>jl</code>, <code>jb</code>, <code>ja</code> and <code>je</code> would be taken.
 <pre>(a) %rax = 3,  %rbx = 3:            cmpq %rbx, %rax
 (b) %rax = −1, %rbx = 1:            cmpq %rbx, %rax
 (c) %al = 0x80, %bl = 0x01:         cmpb %bl, %al
 (d) %rax = 2,  %rbx = 9:            cmpq %rbx, %rax</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">3.2</span><span class="lvl e">easy</span> What C condition (on x in %rdi) makes each jump happen?
+<div class="q" data-uses="M2"><span class="qn">3.2</span><span class="lvl e">easy</span> What C condition (on x in %rdi) makes each jump happen?
 <pre>(a) testq %rdi,%rdi ; jg L      (b) testq $1,%rdi ; jne L      (c) testq %rdi,%rdi ; js L
 (d) cmpq $10,%rdi ; jle L       (e) cmpq $10,%rdi ; jbe L      (f) testq %rdi,%rdi ; je L</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">3.3</span><span class="lvl m">medium</span> (3.13 style.) <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Here a is in part of %rdi and b in part of %rsi. Give data_t and COMP.
+<div class="q" data-uses="M3"><span class="qn">3.3</span><span class="lvl m">medium</span> (3.13 style.) <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Here a is in part of %rdi and b in part of %rsi. Give data_t and COMP.
 <pre>(a) cmpq %rsi,%rdi ; seta %al      (b) cmpl %esi,%edi ; setge %al
 (c) cmpw %si,%di ; setb %al        (d) cmpb %sil,%dil ; sete %al
 (e) cmpq %rsi,%rdi ; setl %al      (f) cmpl %esi,%edi ; setbe %al</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">3.4</span><span class="lvl e">easy</span> Write the assembly for (a) <code>int lt(long a, long b) { return a &lt; b; }</code> and (b) <code>int ugt(unsigned a, unsigned b) { return a &gt; b; }</code>.
+<div class="q" data-uses="M4"><span class="qn">3.4</span><span class="lvl e">easy</span> Write the assembly for (a) <code>int lt(long a, long b) { return a &lt; b; }</code> and (b) <code>int ugt(unsigned a, unsigned b) { return a &gt; b; }</code>.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">3.5</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi and y in %rsi.
+<div class="q" data-uses="M5"><span class="qn">3.5</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi and y in %rsi.
 <div class="two"><pre>long f(long x, long y) {
   if (________)
     return ________;
@@ -84,7 +84,7 @@ Check: x=−5,y=1,z=2 → asm falls through both tests → val = x·y = −5; th
   ret</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">3.6</span><span class="lvl h">harder</span> (3.18 style.) Here a is in %rdi, b in %rsi and c in %rdx.
+<div class="q" data-uses="M5"><span class="qn">3.6</span><span class="lvl h">harder</span> (3.18 style.) Here a is in %rdi, b in %rsi and c in %rdx.
 <div class="two"><pre>long g(long a, long b, long c) {
   long val = ________;
   if (________) {
@@ -111,7 +111,7 @@ Check: x=−5,y=1,z=2 → asm falls through both tests → val = x·y = −5; th
   ret</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">3.7</span><span class="lvl m">medium</span> Fill in the C: <code>long h(long x, long y) { return ____ ? ____ : ____; }</code>
+<div class="q" data-uses="M6 M7"><span class="qn">3.7</span><span class="lvl m">medium</span> Fill in the C: <code>long h(long x, long y) { return ____ ? ____ : ____; }</code>
 <pre>h:  movq   %rdi, %rax
     subq   %rsi, %rax
     leaq   (%rsi,%rsi,2), %rdx
@@ -121,10 +121,10 @@ Check: x=−5,y=1,z=2 → asm falls through both tests → val = x·y = −5; th
 Then explain why GCC could <b>not</b> use cmov for <code>return p ? *p + 1 : 0;</code>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">3.8</span><span class="lvl m">medium</span> (3.16 style.) Write (a) the goto-style C and (b) the assembly for <code>void clip(long *p, long lim) { if (p &amp;&amp; *p &gt; lim) *p = lim; }</code>, with p in %rdi and lim in %rsi. (c) Why are there two conditional jumps?
+<div class="q" data-uses="M8 M9"><span class="qn">3.8</span><span class="lvl m">medium</span> (3.16 style.) Write (a) the goto-style C and (b) the assembly for <code>void clip(long *p, long lim) { if (p &amp;&amp; *p &gt; lim) *p = lim; }</code>, with p in %rdi and lim in %rsi. (c) Why are there two conditional jumps?
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">3.9</span><span class="lvl h">harder</span> (3.21 style.) Here x is in %rdi and y in %rsi.
+<div class="q" data-uses="M5 M6"><span class="qn">3.9</span><span class="lvl h">harder</span> (3.21 style.) Here x is in %rdi and y in %rsi.
 <div class="two"><pre>long k(long x, long y) {
   long val = ________;
   if (________) {
@@ -151,12 +151,12 @@ Then explain why GCC could <b>not</b> use cmov for <code>return p ? *p + 1 : 0;<
   ret</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">3.10</span><span class="lvl m">medium</span> (3.20 style.) What is OP, and what is the role of each instruction?
+<div class="q" data-uses="M10"><span class="qn">3.10</span><span class="lvl m">medium</span> (3.20 style.) What is OP, and what is the role of each instruction?
 <pre>#define OP ___          long arith(long x) { return x OP 4; }
 arith:  leaq 3(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $2,%rax ; ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">3.11</span><span class="lvl m">medium</span> Write the goto version (with labels Else and Done) of <code>long absmin(long a, long b) { long r; if (a &lt;= b) r = b - a; else r = a * b; return r; }</code>, and then its branch-based assembly.
+<div class="q" data-uses="M9"><span class="qn">3.11</span><span class="lvl m">medium</span> Write the goto version (with labels Else and Done) of <code>long absmin(long a, long b) { long r; if (a &lt;= b) r = b - a; else r = a * b; return r; }</code>, and then its branch-based assembly.
 <div class="work m"></div></div>
 
 <!--SOLUTIONS-->
@@ -185,7 +185,8 @@ arith:  leaq 3(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $2,%rax ; 
 
 <div class="sol"><span class="qn">3.4</span>
 <pre>(a) lt:  cmpq %rsi,%rdi ; setl %al ; movzbl %al,%eax ; ret
-(b) ugt: cmpl %esi,%edi ; seta %al ; movzbl %al,%eax ; ret       (4-byte unsigned → cmpl + seta)</pre></div>
+(b) ugt: cmpl %esi,%edi ; seta %al ; movzbl %al,%eax ; ret
+         (4-byte unsigned → cmpl + seta)</pre></div>
 
 <div class="sol"><span class="qn">3.5</span>
 <pre>cmpq %rsi,%rdi ; jge .L2     jump if x ≥ y │ fall-through x &lt; y      ⇒ if (x &lt; y)
@@ -229,7 +230,7 @@ For <code>p ? *p + 1 : 0</code>: a conditional move evaluates <b>both</b> sides,
     read when p is NULL.</pre></div>
 
 <div class="sol"><span class="qn">3.9</span>
-<pre>rax = 2x                                         ⇒ val = 2*x  (also the result if no branch changes it)
+<pre>rax = 2x                              ⇒ val = 2*x  (the result if no branch changes it)
 cmpq $3,%rsi ; jle .L2   jump y ≤ 3 │ fall y &gt; 3     ⇒ if (y &gt; 3)
   rax = x | y   (default inside the block)
   rdx = y + x

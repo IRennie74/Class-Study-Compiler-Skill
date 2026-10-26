@@ -1,13 +1,31 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — operand and memory questions</h4>
-<ol>
-<li><b>Classify the operand</b> before you compute anything. If it starts with <code>$</code>, it is an immediate: the answer is that number and you read no memory. A bare register (<code>%rax</code>) means its contents. Anything else (parentheses, or a bare number like <code>0x104</code>) is a <b>memory</b> operand.</li>
-<li><b>For memory, compute the address</b> with Addr = D + Rb + S·Ri. Convert everything to one base first. Displacements written without 0x are <b>decimal</b>.</li>
-<li><b>Look the address up</b> in the memory table. The value stored there is the answer.</li>
-<li>For <b>suffix</b> questions, read the size from the register that is <i>not</i> inside parentheses (8-bit names like %al, %bl, %sil → b; 16-bit like %ax, %si → w; %eXX or %rNd → l; %rXX → q).</li>
-<li>For <b>"what's wrong"</b> questions, check this list in order: memory-to-memory; immediate as destination; suffix doesn't match the register; the register doesn't exist; a 32-bit register used as an address; %rsp used as the index; scale not in {1,2,4,8}.</li>
-<li>For <b>cast moves</b> (*dp = (dest_t)*sp): if the destination is wider, sign- or zero-extend according to the <b>source</b> type. If it is narrower, load at the source size and store the low part. If the sizes are equal, use a plain mov.</li>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>Toolchain commands.</b> Pipeline: <code>.c</code> → <i>compiler</i> → <code>.s</code> → <i>assembler</i> → <code>.o</code> → <i>linker</i> (+ libraries) → executable. <code>gcc</code> is a driver: it starts at the input file's stage and stops where the flag says: <code>-S</code> after compiling (.s), <code>-c</code> after assembling (.o), and with neither it links an executable (named by <code>-o</code>). <code>-Og</code> only sets optimisation. <code>objdump -d</code> = disassembler, which prints assembly and makes no file. Write: <b>input → stop flag → tool → output</b>.</li>
+<li data-m="M2"><b>ISA vs. microarchitecture.</b> Ask: <i>can an assembly programmer see or use it?</i> Yes → ISA (instructions, registers, condition codes). No → microarchitecture (cache size, clock speed, pipeline). Microarchitecture changes speed, not meaning.</li>
+<li data-m="M3"><b>Register names.</b> <code>%rax %rbx %rcx %rdx</code> → <code>%eax / %ax / %al</code>. <code>%rsi %rdi %rsp %rbp</code> → <code>%esi / %si / %sil</code> (the byte name adds <b>l</b>). <code>%r8–%r15</code> → suffixes <code>d / w / b</code>.</li>
+<li data-m="M4"><b>Writing part of a register.</b> 1- and 2-byte writes change only those bytes. A <b>4-byte write zeroes the upper 4 bytes</b>. <code>movs__</code> fills the new bytes with the sign bit; <code>movz__</code> fills them with 0. Write the full 16-hex-digit value after every line.</li>
+<li data-m="M5"><b>Operand values.</b> Classify first: <code>$c</code> = immediate (that number; no memory read), <code>%reg</code> = its contents, anything else = memory. For memory, Addr = D + Rb + S·Ri (a displacement without 0x is <b>decimal</b>: convert it), then look the address up. Write: <b>kind → address → lookup → value</b>.</li>
+<li data-m="M6"><b>Instruction suffix.</b> Read the size from the register that is <i>not</i> in parentheses: 8-bit name → b, 16-bit → w, %eXX/%rNd → l, %rXX → q. Registers inside parentheses are 64-bit addresses and tell you nothing about the size.</li>
+<li data-m="M7"><b>What's wrong with this instruction?.</b> Check in order: memory-to-memory; immediate as destination; suffix ≠ register size; register doesn't exist; 32-bit register used as an address; %rsp as the index; scale not in {1,2,4,8}.</li>
+<li data-m="M8"><b>Cast moves <code>*dp = (dest_t)*sp</code>.</b> Wider destination → movs/movz by the <b>source's</b> signedness, with suffix pair (source size)(destination size). Narrower → load at the source size, store the low part (<code>%al</code>/<code>%ax</code>/<code>%eax</code>). Same size → plain mov. unsigned → long is <code>movl</code> (zero-extends automatically).</li>
+<li data-m="M9"><b>Move traces and assembly → C.</b> Keep a state table (one row per instruction: registers + memory cells). Add a <b>Meaning</b> column: <code>(%reg)</code> = <code>*p</code>, <code>k(%reg)</code> = <code>p[k/8]</code> for longs. The Meaning column <i>is</i> the C.</li>
+<li data-m="M10"><b>C → assembly for pointer code.</b> Map params to registers. <code>*p</code> → <code>(%reg)</code>; <code>p[k]</code> → <code>8k(%reg)</code> (4k for int). A constant store is <code>movq $c, …</code>. A memory-to-memory copy goes through a register. End with <code>ret</code>.</li>
 </ol></div>
+
+
+<div class="showwork"><h4>Model answer: toolchain and ISA question</h4>
+<pre>Command                    Input   Stop flag         Tool that runs   Output
+(a) gcc -Og -S calc.c      .c      -S (after compile) compiler         calc.s
+(b) gcc -c calc.s          .s      -c (after assemble) assembler       calc.o
+(c) gcc calc.o main.o -o calc
+                           .o      none → link only  linker           calc (executable)
+(d) objdump -d calc        exe     -d disassemble    disassembler     none (prints assembly)
+
+ISA or microarchitecture? Test: "can the assembly programmer see/use it?"
+  number of registers → yes → ISA        32 KB L1 cache → no → micro
+  cmovle exists       → yes → ISA        3.2 GHz clock  → no → micro
+  condition codes     → yes → ISA        pipeline depth → no → micro</pre></div>
 
 <div class="showwork"><h4>How to show your work (what to actually write on the quiz)</h4>
 <p>For each operand, write one line: <b>kind → address computation → lookup → value</b>. For a sequence of moves, keep a <b>state table</b> with one row per instruction. A grader can award part marks only when the computation is visible.</p>
@@ -30,34 +48,35 @@ $0x108            immediate (no memory read)                   0x108
 <div class="deck"><b>From the instructor's practice deck, also do:</b> Problem 1 (3.1), Problem 2 (3.2), Problem 3 (3.3), Problem 4 (3.4), Problem 5 (3.5). Their solutions are in the master reference, section D.</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">1.1</span><span class="lvl e">easy</span> For each command, name the tool that runs and the file it produces.
-<pre>(a) gcc -Og -S calc.c        (b) gcc -c calc.s        (c) gcc calc.o main.o -o calc        (d) objdump -d calc</pre>
+<div class="q" data-uses="M1 M2"><span class="qn">1.1</span><span class="lvl e">easy</span> For each command, name the tool that runs and the file it produces.
+<pre>(a) gcc -Og -S calc.c              (b) gcc -c calc.s
+(c) gcc calc.o main.o -o calc      (d) objdump -d calc</pre>
 Then classify each item as ISA or microarchitecture: (i) the number of integer registers, (ii) a 32 KB L1 cache, (iii) that a <code>cmovle</code> instruction exists, (iv) a 3.2 GHz clock, (v) the condition-code flags, (vi) the pipeline depth.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.2</span><span class="lvl e">easy</span> Give the 4-byte, 2-byte and 1-byte names of <code>%rbx</code>, <code>%rsi</code>, <code>%r10</code> and <code>%rbp</code>.
+<div class="q" data-uses="M3"><span class="qn">1.2</span><span class="lvl e">easy</span> Give the 4-byte, 2-byte and 1-byte names of <code>%rbx</code>, <code>%rsi</code>, <code>%r10</code> and <code>%rbp</code>.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">1.3</span><span class="lvl e">easy</span> For each instruction, say whether it is legal. If it is, give a C analog (p and q are long *, t1 and t2 are long).
+<div class="q" data-uses="M7 M9"><span class="qn">1.3</span><span class="lvl e">easy</span> For each instruction, say whether it is legal. If it is, give a C analog (p and q are long *, t1 and t2 are long).
 <pre>(a) movq $5, (%rdi)     (b) movq (%rdi), (%rsi)     (c) movq %rax, %rbx
 (d) movq 8(%rdi), %rax  (e) movq %rdx, $8</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.4</span><span class="lvl m">medium</span> Memory: M[0x400] = 0x5, M[0x408] = 0x9, M[0x410] = 0xC, M[0x418] = 0x1. Registers: %rdi = 0x400, %rsi = 0x3, %rdx = 0x10. Give the value of each operand <b>with the work line</b>.
+<div class="q" data-uses="M5"><span class="qn">1.4</span><span class="lvl m">medium</span> Memory: M[0x400] = 0x5, M[0x408] = 0x9, M[0x410] = 0xC, M[0x418] = 0x1. Registers: %rdi = 0x400, %rsi = 0x3, %rdx = 0x10. Give the value of each operand <b>with the work line</b>.
 <pre>(a) %rdx          (b) $0x408            (c) 0x410             (d) (%rdi)
 (e) 8(%rdi)       (f) (%rdi,%rdx)       (g) 2(%rdi,%rsi,2)    (h) 0x3F8(,%rsi,8)
 (i) -8(%rdi,%rdx,2)</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">1.5</span><span class="lvl m">medium</span> (a) Fill in the suffix: <code>mov %cx,(%rax)</code> · <code>mov $-1,%r11</code> · <code>mov (%rbx),%r8d</code> · <code>mov %sil,(%rdx,%rcx)</code> · <code>mov 4(%rsp),%eax</code> · <code>mov %rbp,(%rsp)</code>.<br>
+<div class="q" data-uses="M6 M7"><span class="qn">1.5</span><span class="lvl m">medium</span> (a) Fill in the suffix: <code>mov %cx,(%rax)</code> · <code>mov $-1,%r11</code> · <code>mov (%rbx),%r8d</code> · <code>mov %sil,(%rdx,%rcx)</code> · <code>mov 4(%rsp),%eax</code> · <code>mov %rbp,(%rsp)</code>.<br>
 (b) Say what is wrong with each line: <code>movl %eax,%rbx</code> · <code>movw (%rdi),(%rsi)</code> · <code>movb %bl,$4</code> · <code>movq (%rax,%rsp,2),%rdx</code> · <code>movl %ebx,(%edx)</code> · <code>movq %rax,(%rdx,%rcx,5)</code>.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.6</span><span class="lvl m">medium</span> <code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give two instructions for <code>*dp = (dest_t)*sp;</code> using %rax (or part of it).
+<div class="q" data-uses="M8"><span class="qn">1.6</span><span class="lvl m">medium</span> <code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give two instructions for <code>*dp = (dest_t)*sp;</code> using %rax (or part of it).
 <table><tr><th>src_t</th><th>dest_t</th></tr><tr><td>short</td><td>long</td></tr><tr><td>unsigned short</td><td>long</td></tr><tr><td>long</td><td>int</td></tr><tr><td>char</td><td>unsigned short</td></tr><tr><td>unsigned</td><td>long</td></tr><tr><td>int</td><td>short</td></tr></table>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.7</span><span class="lvl m">medium</span> Initially %rdi = 0x200, %rsi = 0x300, M[0x200] = 10, M[0x208] = 20, M[0x210] = 30, M[0x300] = 99. Trace the code below with a state table, then give the final registers and memory.
+<div class="q" data-uses="M9"><span class="qn">1.7</span><span class="lvl m">medium</span> Initially %rdi = 0x200, %rsi = 0x300, M[0x200] = 10, M[0x208] = 20, M[0x210] = 30, M[0x300] = 99. Trace the code below with a state table, then give the final registers and memory.
 <pre>movq (%rdi), %rax
 movq 8(%rdi), %rdx
 movq %rdx, (%rdi)
@@ -66,11 +85,11 @@ movq (%rsi), %rcx
 movq %rcx, 16(%rdi)</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">1.8</span><span class="lvl h">harder</span> (a) Write C for this function: <code>void f(long *a, long *b)</code>, compiled to <code>movq (%rsi),%rax ; movq %rax,(%rdi) ; movq $0,(%rsi) ; ret</code>.<br>
+<div class="q" data-uses="M9 M10"><span class="qn">1.8</span><span class="lvl h">harder</span> (a) Write C for this function: <code>void f(long *a, long *b)</code>, compiled to <code>movq (%rsi),%rax ; movq %rax,(%rdi) ; movq $0,(%rsi) ; ret</code>.<br>
 (b) Write the assembly for <code>void put(long *p, long v) { p[2] = v; *p = 7; }</code>.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.9</span><span class="lvl m">medium</span> (Like 3.5.) <code>void decode2(long *xp, long *yp, long *zp)</code> with xp in %rdi, yp in %rsi and zp in %rdx. Write equivalent C.
+<div class="q" data-uses="M9"><span class="qn">1.9</span><span class="lvl m">medium</span> (Like 3.5.) <code>void decode2(long *xp, long *yp, long *zp)</code> with xp in %rdi, yp in %rsi and zp in %rdx. Write equivalent C.
 <pre>decode2:
   movq (%rsi), %rax
   movq (%rdx), %rcx
@@ -81,7 +100,7 @@ movq %rcx, 16(%rdi)</pre>
   ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.10</span><span class="lvl h">harder</span> %rax starts as <code>0x1122334455667788</code>. Each line runs <b>in sequence</b>. Give %rax (or %rdx where written) after each line.
+<div class="q" data-uses="M4"><span class="qn">1.10</span><span class="lvl h">harder</span> %rax starts as <code>0x1122334455667788</code>. Each line runs <b>in sequence</b>. Give %rax (or %rdx where written) after each line.
 <pre>(a) movb   $0xAA, %al
 (b) movw   $0xBBBB, %ax
 (c) movl   $0xC, %eax
@@ -90,15 +109,17 @@ movq %rcx, 16(%rdi)</pre>
 (f) movzbq %al, %rdx        (give %rdx)</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">1.11</span><span class="lvl m">medium</span> (3.1 style, decimal trap.) M[0x100] = 0x1, M[0x108] = 0x2, M[0x110] = 0x3, M[0x118] = 0x4. Registers: %rax = 0x100, %rcx = 0x2, %rdx = 0x8. Give each value.
-<pre>(a) 16(%rax)    (b) 0x10(%rax)    (c) 264(,%rcx,4)    (d) 0xF8(%rdx,%rcx,4)    (e) (%rax,%rdx,2)    (f) $16</pre>
+<div class="q" data-uses="M5"><span class="qn">1.11</span><span class="lvl m">medium</span> (3.1 style, decimal trap.) M[0x100] = 0x1, M[0x108] = 0x2, M[0x110] = 0x3, M[0x118] = 0x4. Registers: %rax = 0x100, %rcx = 0x2, %rdx = 0x8. Give each value.
+<pre>(a) 16(%rax)           (b) 0x10(%rax)        (c) 264(,%rcx,4)
+(d) 0xF8(%rdx,%rcx,4)  (e) (%rax,%rdx,2)     (f) $16</pre>
 <div class="work m"></div></div>
 
 <!--SOLUTIONS-->
 <div class="sol"><span class="qn">1.1</span>
 <pre>(a) compiler        → calc.s (assembly text)
 (b) assembler       → calc.o (object code)
-(c) linker          → calc   (executable; resolves references between the .o files and libraries)
+(c) linker          → calc   (executable; resolves references between
+                              the .o files and libraries)
 (d) disassembler    → prints assembly reconstructed from the bytes (no file)
 ISA: (i) number of registers, (iii) cmovle exists, (v) condition-code flags
 Microarchitecture: (ii) cache size, (iv) clock speed, (vi) pipeline depth</pre>
@@ -141,8 +162,9 @@ Watch: in (h), 8·3 = 24 = 0x18, and 0x3F8 + 0x18 = 0x410 (carry from the 8s dig
 unsigned short → long   movzwq (%rdi),%rax   ; movq %rax,(%rsi)   unsigned source → zero-extend
 long → int              movq   (%rdi),%rax   ; movl %eax,(%rsi)   narrower → store low 4 bytes
 char → unsigned short   movsbw (%rdi),%ax    ; movw %ax,(%rsi)    the SOURCE (char) is signed
-unsigned → long         movl   (%rdi),%eax   ; movq %rax,(%rsi)   movl zeroes the upper 32 bits,
-                                                                  so it IS the zero-extension (no movzlq)
+unsigned → long         movl   (%rdi),%eax   ; movq %rax,(%rsi)
+                        (movl zeroes the upper 32 bits, so it IS the zero-extension;
+                         there is no movzlq)
 int → short             movl   (%rdi),%eax   ; movw %ax,(%rsi)    narrower</pre></div>
 
 <div class="sol"><span class="qn">1.7</span>
@@ -186,7 +208,8 @@ Showing the arrows (or the "Meaning" column) gets you the marks even if your fin
 (b) movw $0xBBBB,%ax     0x112233445566BBBB   only the low 2 bytes change
 (c) movl $0xC,%eax       0x000000000000000C   a 32-bit write zeroes the upper 4 bytes!
 (d) movb $-1,%al         0x00000000000000FF
-(e) movsbq %al,%rdx      %rdx = 0xFFFFFFFFFFFFFFFF   (sign bit of 0xFF is 1 → fill with 1s = −1)
+(e) movsbq %al,%rdx      %rdx = 0xFFFFFFFFFFFFFFFF
+                         (sign bit of 0xFF is 1 → fill with 1s = −1)
 (f) movzbq %al,%rdx      %rdx = 0x00000000000000FF   (fill with 0s = 255)</pre></div>
 
 <div class="sol"><span class="qn">1.11</span>

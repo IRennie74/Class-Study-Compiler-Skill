@@ -3,9 +3,10 @@
     "n": "1",
     "title": "{{Unit title}}",
     "lectures": "Lectures {{L01–L02}}",
+    "learn": [1, 2],
     "facts": [
-      "{{Key fact needed to solve this unit's problems}}",
-      "{{3–6 facts per unit, each one line}}"
+      "{{Key-facts recap line: shown after the Learn-it sections}}",
+      "{{3–6 one-line facts}}"
     ]
   }
 ]

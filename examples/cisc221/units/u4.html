@@ -1,22 +1,16 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — loops</h4>
-<ol>
-<li><b>Find the loop:</b> circle every jump to an <i>earlier</i> label (the back-edge). The code between that label and the back-edge is the loop.</li>
-<li><b>Classify the translation:</b>
-<table><tr><th>You see</th><th>It is</th></tr>
-<tr><td>no jump before the loop label; the test is only at the bottom</td><td>do-while</td></tr>
-<tr><td><code>jmp .Ltest</code> right before the body (the test is at the bottom)</td><td>while, jump-to-middle (-Og)</td></tr>
-<tr><td>a test before the loop that jumps <i>past</i> it, then the same test at the bottom</td><td>while, guarded-do (-O1)</td></tr></table></li>
-<li><b>Label the parts:</b> <b>Init</b> = the movs before the loop. <b>Test</b> = the cmp/test + back-edge jump (the C condition is the jump's condition, because the back-edge is taken when the loop continues). <b>Update</b> = the add/sub of the counter just before the test. <b>Body</b> = the rest.</li>
-<li><b>Write it as a while.</b> Convert to a for if there is a clear Init/Test/Update on one variable.</li>
-<li><b>Trace a small input</b> in an iteration table to check your answer and to answer "what does it compute?".</li>
-</ol>
-<h4>Solving method — switch</h4>
-<ol><li><b>Offset</b> k from <code>subq $k</code> / <code>addq $−k</code> / <code>leaq −k(%rdi)</code>. Without one, k = 0. Table index i ↔ case i + k.</li>
-<li><b>Max</b> case = (the constant in <code>cmpq $n</code>) + k. <code>ja</code> → the default label.</li>
-<li>Write a mapping table: <b>index → case value → label</b>.</li>
-<li>Entries that equal the default label are <b>missing</b> cases. Labels that appear twice are <b>shared</b> cases.</li>
-<li>Translate each label's block. A block with no jmp/ret at its end <b>falls through</b> into the next label.</li></ol></div>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>Find and classify the loop.</b> Circle every jump to an <i>earlier</i> label (the back-edge). No jump before the loop → <b>do-while</b>. <code>jmp</code> to a test at the bottom first → <b>jump-to-middle</b> (-Og). A test before the loop that jumps past it, plus the same test at the bottom → <b>guarded-do</b> (-O1).</li>
+<li data-m="M2"><b>Label the parts and write the C.</b> INIT = the movs before the loop. TEST = the cmp/test + back-edge jump: the C condition is the back-edge jump's condition (it is taken when the loop continues), and <code>cmp b,a</code> reads as a ? b. UPDATE = the counter change just before the test. BODY = the rest. Write a while loop, or a for loop if one variable has init/test/update.</li>
+<li data-m="M3"><b>Iteration table / "what does it compute?".</b> Trace 2–3 small inputs in a table (one row per iteration: variables + test result). Look for the pattern (powers, sums, bit counts) and state it in plain English.</li>
+<li data-m="M4"><b>Loop edge cases.</b> A do-while runs the body at least once (check n = 0 or a negative input). A test before the loop is an early exit or guard. If the first test is known to be true (e.g. i = 8; i != 0), the compiler <b>drops the guard</b>, so it looks like a plain do-while.</li>
+<li data-m="M5"><b>C loop → goto → assembly.</b> for → <code>Init; while (T) { Body; Update; }</code>. Guarded-do: <code>Init; if (!T) goto done; loop: Body; Update; if (T) goto loop; done:</code>. In assembly: the initial values, the guard compare + jump to done, the loop label, the body, the update, the compare, a jump back on T.</li>
+<li data-m="M6"><b>Switch: offset and range.</b> Offset k from <code>subq $k</code> / <code>addq $−k</code> / <code>leaq −k(%rdi)</code> (0 if none), so index i ↔ case i + k. Largest case = n + k from <code>cmpq $n</code>. <code>ja</code> → the default label, and it also catches negatives (unsigned).</li>
+<li data-m="M7"><b>Switch: mapping table.</b> Write <b>index → case value → label</b> for every table entry. Entries equal to the default label are <b>missing</b> cases. A label that appears twice means <b>shared</b> cases.</li>
+<li data-m="M8"><b>Switch: translate the blocks.</b> Translate each label's code into C. A block that does not end in jmp/ret <b>falls through</b> into the next label. Evaluate the given inputs by following the table.</li>
+</ol></div>
+
 
 <div class="showwork"><h4>How to show your work: model answer (3.24 style)</h4>
 <pre>Map: a → rdi, b → rsi
@@ -46,7 +40,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
 <div class="deck"><b>From the practice deck, also do:</b> Problem 15 (3.23), 17 (3.24), 18 (3.25), 19 (3.26), 20 (3.28), 21 (3.31 switch). Also learn the lecture's pcount_do, pcount_while and switch_eg.</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">4.1</span><span class="lvl e">easy</span> Classify each skeleton as do-while, jump-to-middle or guarded-do.
+<div class="q" data-uses="M1"><span class="qn">4.1</span><span class="lvl e">easy</span> Classify each skeleton as do-while, jump-to-middle or guarded-do.
 <pre>(A)  movl $0,%eax         (B)  testq %rdi,%rdi        (C)  movl $0,%eax
      jmp .L2                   jle .L5                   .L3:
 .L3: ...                       movl $0,%eax                   ...
@@ -56,7 +50,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
                           .L5: movl $0,%eax ; ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">4.2</span><span class="lvl m">medium</span> Write the C (do-while), then give p(7) and p(−2). x is in %rdi.
+<div class="q" data-uses="M2 M3 M4"><span class="qn">4.2</span><span class="lvl m">medium</span> Write the C (do-while), then give p(7) and p(−2). x is in %rdi.
 <pre>p:    movl  $0, %eax
 .L2:  addq  %rdi, %rax
       subq  $3, %rdi
@@ -65,7 +59,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
       ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">4.3</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in the template <code>long result = __; while (__) { result = __; a = __; } return result;</code>, then say what the function computes and give q(3, 2).
+<div class="q" data-uses="M1 M2 M3"><span class="qn">4.3</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in the template <code>long result = __; while (__) { result = __; a = __; } return result;</code>, then say what the function computes and give q(3, 2).
 <pre>q:    movl  $1, %eax
       jmp   .L2
 .L3:  imulq %rsi, %rax
@@ -75,7 +69,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
       ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">4.4</span><span class="lvl m">medium</span> n is in %rdi. Identify the translation, write the C as a <b>for</b> loop, and give r(4). What does r compute in general?
+<div class="q" data-uses="M1 M2 M3"><span class="qn">4.4</span><span class="lvl m">medium</span> n is in %rdi. Identify the translation, write the C as a <b>for</b> loop, and give r(4). What does r compute in general?
 <pre>r:    testq %rdi, %rdi
       jle   .L4
       movl  $0, %eax
@@ -89,10 +83,10 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
       ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">4.5</span><span class="lvl m">medium</span> For <code>long fact(long n) { long r = 1; for (long i = 2; i &lt;= n; i++) r *= i; return r; }</code>, write (a) the while version, (b) the guarded-do goto version, and (c) plausible -O1 assembly.
+<div class="q" data-uses="M5"><span class="qn">4.5</span><span class="lvl m">medium</span> For <code>long fact(long n) { long r = 1; for (long i = 2; i &lt;= n; i++) r *= i; return r; }</code>, write (a) the while version, (b) the guarded-do goto version, and (c) plausible -O1 assembly.
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">4.6</span><span class="lvl m">medium</span> x is an unsigned long in %rdi. Write the C, then describe in English what the function computes. Give fun(8) and fun(5).
+<div class="q" data-uses="M2 M3"><span class="qn">4.6</span><span class="lvl m">medium</span> x is an unsigned long in %rdi. Write the C, then describe in English what the function computes. Give fun(8) and fun(5).
 <pre>fun:  movl  $0, %eax
       jmp   .L2
 .L3:  addq  $1, %rax
@@ -102,7 +96,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
       ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">4.7</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in <code>long result = __; while (__) { result = __; a = __; }</code>, then give lw(1, 6) with an iteration table.
+<div class="q" data-uses="M2 M3"><span class="qn">4.7</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in <code>long result = __; while (__) { result = __; a = __; }</code>, then give lw(1, 6) with an iteration table.
 <pre>lw:   movl  $0, %eax
       jmp   .L2
 .L3:  movq  %rdi, %rdx
@@ -114,7 +108,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
       ret</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">4.8</span><span class="lvl h">harder</span> x is an unsigned long in %rdi. Write the C, describe what it computes, and give tz(8) and tz(12).
+<div class="q" data-uses="M2 M3 M4"><span class="qn">4.8</span><span class="lvl h">harder</span> x is an unsigned long in %rdi. Write the C, describe what it computes, and give tz(8) and tz(12).
 <pre>tz:   movl  $0, %eax
       testq %rdi, %rdi
       je    .L4
@@ -126,7 +120,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
 .L4:  ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">4.9</span><span class="lvl h">harder</span> (3.28 style.) <code>unsigned long f(unsigned long x) { unsigned long val = 0; long i; for (__; __; __) { __ } return val; }</code>
+<div class="q" data-uses="M2 M3 M4"><span class="qn">4.9</span><span class="lvl h">harder</span> (3.28 style.) <code>unsigned long f(unsigned long x) { unsigned long val = 0; long i; for (__; __; __) { __ } return val; }</code>
 <pre>f:    movl  $8, %edx
       movl  $0, %eax
 .L2:  movq  %rdi, %rcx
@@ -140,7 +134,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
 (a) Fill in the for loop. (b) Why is there no test before the loop? (c) What is f(0x12345678)? Describe the function in English.
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">4.10</span><span class="lvl h">harder</span> (3.31 style.) Here x is in %rdi and y in %rsi. Fill in the switch, then give s(4,5), s(6,5) and s(3,5).
+<div class="q" data-uses="M6 M7 M8"><span class="qn">4.10</span><span class="lvl h">harder</span> (3.31 style.) Here x is in %rdi and y in %rsi. Fill in the switch, then give s(4,5), s(6,5) and s(3,5).
 <div class="two"><pre>long s(long x, long y) {
   switch (x) {
     case __:
@@ -164,7 +158,7 @@ Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
 .L4:  .quad .L3, .L6, .L5, .L3, .L7</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">4.11</span><span class="lvl m">medium</span> From the setup and the table alone: which case values exist, which share code, which are missing, and which x values reach default?
+<div class="q" data-uses="M6 M7"><span class="qn">4.11</span><span class="lvl m">medium</span> From the setup and the table alone: which case values exist, which share code, which are missing, and which x values reach default?
 <pre>addq $3, %rdi ; cmpq $6, %rdi ; ja .Ld ; jmp *.T(,%rdi,8)
 .T: .quad .L5, .Ld, .L6, .L7, .L5, .Ld, .L8</pre>
 <div class="work m"></div></div>
@@ -188,7 +182,9 @@ Computes b^a (b to the power a, for a ≥ 0).   q(3,2) = 2·2·2 = 8
 
 <div class="sol"><span class="qn">4.4</span>
 <pre>Guarded-do (the test n &gt; 0 before the loop, then cmpq/jg at the bottom).
-.L3: rax = rax + 2·rdx + 1  → s += 2*i + 1 ;  rdx++ → i++ ;  cmpq %rdx,%rdi ; jg → n &gt; i, i.e. i &lt; n
+.L3: rax = rax + 2·rdx + 1  → s += 2*i + 1
+     rdx++                  → i++
+     cmpq %rdx,%rdi ; jg    → n &gt; i, i.e. i &lt; n
 long r(long n) { long s = 0; for (long i = 0; i &lt; n; i++) s += 2*i + 1; return s; }
 r(4) = 1 + 3 + 5 + 7 = 16.  In general it sums the first n odd numbers = n².</pre>
 Trap: <code>cmpq %rdx,%rdi</code> computes rdi − rdx = n − i, so jg means n &gt; i.</div>

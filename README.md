@@ -6,7 +6,7 @@ This is how I study for tests. I put all the course materials for a test in one 
 |---|-----|-------------------|
 | 1 | **Mock Test** | A full practice test of original, test-style questions. It's longer than the real thing, so every question type the instructor uses shows up. There are boxes for my work. |
 | 2 | **Mock Test — Answers** | The same test with every answer in red and a short "Why" explaining the method. |
-| 3 | **Unit Problem Workbook** | The main one. For each unit: the key facts → a step-by-step solving method → a model answer showing *exactly how to write my work on the test* → 8–12 practice problems (easy/medium/harder) → fully worked solutions on the next page. It ends with a mixed review set. |
+| 3 | **Unit Problem Workbook** | The main one. Each unit **teaches first, then practises exactly what it taught**: what I'll be able to do (M1, M2, …) → *Learn it* (explanations and worked examples) → step-by-step methods → a model answer showing *exactly how to write my work on the test* → 8–12 practice problems (easy/medium/harder), each tagged with the methods it uses → fully worked solutions on the next page. It ends with a mixed review set. The build refuses to produce a workbook where a problem tests something its unit didn't teach. |
 | 4 | **Complete Master Reference** | Everything in one place: notes from every lecture, how the instructor solves problems, every official practice problem solved, problem types, traps, reference tables, glossary, self-test, exam checklist. Written so I can review it **or hand it to another AI** that then knows the whole course. |
 | 5 | **Concepts Notes** | Topic-by-topic explanations with worked examples and a cheat sheet. |
 

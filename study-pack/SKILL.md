@@ -7,11 +7,13 @@ description: Turn a folder of course materials (lecture slides/PDFs, practice pr
 
 The user studies for tests this way: give them the course materials, and they get **five PDFs** built from those materials. The test is about **solving problems**, so the problem PDFs (the workbook and the mock) matter most. The notes support them.
 
+**The non-negotiable rule: learn it, then practise exactly what you just learned.** Every practice problem must be solvable from what its unit taught *before* it, and every problem shows which methods (M1, M2, …) it uses. A practice problem whose type isn't taught in its unit is a bug. `assemble.py` enforces this and fails the build otherwise.
+
 | # | PDF | What it is |
 |---|-----|------------|
 | 1 | Mock Test | Original test-style questions, deliberately longer than the real test, with work boxes |
 | 2 | Mock Test ANSWERS | The same test with answers in red and a "Why:" for each |
-| 3 | Unit Problem Workbook | **Centrepiece.** Per unit: key facts → solving method → show-your-work model → 8–12 practice problems → worked solutions on the next page |
+| 3 | Unit Problem Workbook | **Centrepiece.** Per unit: "you will be able to" (M1…Mn) → **Learn it** (teaching + worked examples) → labelled methods → show-your-work model → 8–12 practice problems, each tagged with the methods it uses → worked solutions on the next page |
 | 4 | Complete Master Reference | Everything: lecture notes, the instructor's method, every official problem solved, taxonomy, traps, tables, glossary. Written so another AI could use it as full context |
 | 5 | Concepts Notes | Topic-by-topic teaching notes with worked examples and a cheat sheet |
 
@@ -38,13 +40,14 @@ Run `scripts/extract.sh <materials_dir> <scratchpad>/work`. It produces:
 - Catalogue the **problem types** the instructor uses (official practice problems, video examples, slide examples). Each type must show up in the workbook and the mock.
 - Capture **how the instructor solves problems** (the annotation style, tables, the order of steps). The show-your-work format must match it.
 - Note where official solutions are incomplete or wrong.
+- **Plan each unit before writing any problem:** list its problem types, then its methods M1…Mn (one per type, including the "write the code" direction, "why" questions, edge cases and tricks), then which notes sections teach them.
 
 ### 4. Write the content (HTML)
 Copy `templates/` into `<scratchpad>/build/`, then write:
-1. `units.json` + `units/u1.html … uN.html` (use `templates/unit.html`; keep the three markers) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this first, and most carefully.**
-2. `mock.html` (from `templates/mock.html`; one source for both the test and the key).
-3. `master.html` (sections A–J, as in the spec).
-4. `notes.html`.
+1. `notes.html` FIRST: one section per topic, each starting with a `<!-- N -->` marker. The workbook reuses these sections as each unit's "Learn it" pages.
+2. `units.json` (with `"learn": [section numbers]` per unit) + `units/u1.html … uN.html` (use `templates/unit.html`: one `ol.mlist` of `li data-m="M1"` methods; every problem `div.q data-uses="M1 M3"`) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this most carefully.** Then do the **audit pass**: for each problem, ask "could a student who has read only this unit's Learn-it and methods solve this?" If not, add the teaching and method, or move the problem.
+3. `mock.html` (from `templates/mock.html`; one source for both the test and the key). Every question must map to a workbook unit's method, and the scoring guide maps each Part to the unit to redo.
+4. `master.html` (sections A–J, as in the spec).
 
 Rules:
 - Problems are **original** (the instructor's types, new numbers and code). Summaries of official problems are paraphrased, not transcribed.
@@ -53,9 +56,10 @@ Rules:
 - Use the CSS classes from `templates/style.css` (`.q .qn .lvl.e/.m/.h .work.s/m/l/xl .two .method .showwork .deck .sol .note .warn .good .part .fill .a .exp .keyonly .testonly .pb`). Don't invent new layout CSS unless it's needed.
 
 ### 5. Build and check
-- `scripts/build.sh <build_dir> <materials_dir>/Study_Pack <COURSECODE>` renders all five PDFs with headless Chrome and runs `check_lines.py`. Fix flagged code lines that are too long by splitting them, or by stacking a `.two` block vertically.
+- `scripts/build.sh <build_dir> <materials_dir>/Study_Pack <COURSECODE>` renders all five PDFs with headless Chrome and runs `check_lines.py`. **If the coverage check fails, fix the content (add the missing teaching/method, or retag) — never delete the check or tag problems with methods they don't really use.** Fix flagged code lines that are too long by splitting them (every flagged line in units/ and wb_*.html should be zero), or by stacking a `.two` block vertically.
 - `scripts/contact_sheet.sh <pdf> <png>` for each PDF; look at it. Check for blank or near-empty pages, clipped tables, and answer keys leaking into the test version. Zoom into a solution page and a mock page at ~70 dpi to confirm they are readable.
 - Confirm the test PDF shows no answers, and the key PDF shows every answer and "Why".
+- **Student read-through:** render one whole unit (header → Learn it → methods → practice → solutions) at ~55 dpi and read it in order, as the student would. Does each problem follow from what came just before it?
 
 ### 6. Deliver
 - Save the PDFs in `<materials_dir>/Study_Pack/`. Send them with SendUserFile (when available), with display "attach".

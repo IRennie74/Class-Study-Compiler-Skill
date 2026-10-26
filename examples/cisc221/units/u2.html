@@ -1,19 +1,16 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — "fill in the C" for straight-line arithmetic</h4>
-<ol>
-<li><b>Register map.</b> From the prototype, write x → %rdi, y → %rsi, z → %rdx (then %rcx, %r8, %r9).</li>
-<li><b>Annotate every line.</b> Next to each instruction, write the new value of the <b>destination</b> (the second operand) as an expression in the <i>original</i> variables. Use these translations:
-<table><tr><th>Instruction</th><th>Write</th></tr>
-<tr><td><code>leaq D(a,b,S), d</code></td><td>d = D + a + S·b</td></tr>
-<tr><td><code>subq s, d</code></td><td>d = d − s (reversed from how it reads)</td></tr>
-<tr><td><code>salq k, d</code></td><td>d = d · 2<sup>k</sup></td></tr>
-<tr><td><code>sarq k, d</code> / <code>shrq k, d</code></td><td>d = d &gt;&gt; k (signed / unsigned)</td></tr>
-<tr><td><code>notq d</code> / <code>negq d</code></td><td>d = ~d / d = −d</td></tr>
-<tr><td><code>xorq r, r</code></td><td>r = 0</td></tr></table></li>
-<li><b>Track register reuse.</b> When a register is overwritten, its old meaning is gone. Cross it out in your map.</li>
-<li><b>Match to the blanks.</b> The C temporaries (t1, t2, …) are usually the values after particular lines. The compiler may merge two C lines into one leaq, or reorder independent ones.</li>
-<li><b>Verify with numbers.</b> Pick x = 1, y = 2, z = 3, run both the assembly (on your annotations) and your C, and check that they agree. It takes 30 seconds and catches most sign and order mistakes.</li>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>leaq as algebra.</b> <code>leaq D(a,b,S), d</code> → d = D + a + S·b. No memory access, no flags. Watch hex displacements (0x20 = 32).</li>
+<li data-m="M2"><b>Instruction effects table.</b> The destination is the <b>second</b> operand. Compute its address if it is memory, then new value = old value OP source. Each row starts from the original state. Write: <i>dest = (address work); old op src = new</i>.</li>
+<li data-m="M3"><b>Reverse straight-line code → C.</b> (1) Register map from the prototype. (2) Next to every line, write the destination's new value in the <i>original</i> variables (<code>subq s,d</code> → d − s; <code>salq k</code> → ·2<sup>k</sup>; <code>xorq r,r</code> → 0). (3) When a register is overwritten, cross out its old meaning. (4) Match the values to the blanks t1, t2…; the compiler may merge or reorder lines.</li>
+<li data-m="M4"><b>Verify with numbers.</b> Pick x = 1, y = 2, z = 3. Run your annotations and your C, and confirm they give the same result. Write the check line under your answer.</li>
+<li data-m="M5"><b>Signed vs. unsigned clues; not vs. neg.</b> <code>sarq</code> = signed (arithmetic) shift, <code>shrq</code> = unsigned (logical). <code>notq</code> = ~x (bitwise), <code>negq</code> = −x. The instruction tells you the type: shrq on a value means it is unsigned.</li>
+<li data-m="M6"><b>C → assembly for expressions.</b> Compute into <code>%rax</code> (the return register) using <code>%rcx</code>/<code>%rdx</code> as scratch once their arguments are no longer needed. Use <code>leaq</code> for x + k·y + c, keep the operand order right for sub, and use sar for signed &gt;&gt;. End with <code>ret</code>.</li>
+<li data-m="M7"><b>Multiply by a constant without imul.</b> Factor the constant into a leaq multiplier (2, 3, 4, 5, 8, 9) times a power of 2 (<code>salq</code>), or use 8x − x style subtraction. 36 = 9·4, 10 = 5·2, 7 = 8 − 1. Then add any constant with <code>leaq c(%rax)</code> or <code>addq $c</code>.</li>
+<li data-m="M8"><b>Short-answer "why" questions.</b> Answer with the <b>fact</b> plus the <b>reason</b>. For example: xor r,r = 0 because x^x = 0, and it encodes shorter than movq $0. leaq can add three terms into any register and leaves the flags alone. add/sub/imul give the same bits for signed and unsigned in two's complement.</li>
 </ol></div>
+
 
 <div class="showwork"><h4>How to show your work: model answer (Practice Problem 3.10 style)</h4>
 <pre>Register map:  x → %rdi   y → %rsi   z → %rdx
@@ -33,18 +30,18 @@ Check (x=1, y=2, z=3): t1 = 3, t2 = 0, t3 = −1, t4 = 3 − (−1) = 4.
 <div class="deck"><b>From the practice deck, also do:</b> Problem 6 (3.6 leaq), Problem 7 (3.7 scale2), Problem 8 (3.8 effects), Problem 9 (3.10 arith2), Problem 10 (3.11 xor). The lecture's arith example (L10) is a must-know.</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">2.1</span><span class="lvl e">easy</span> %rdi = a and %rsi = b. Give the formula stored in %rax.
+<div class="q" data-uses="M1"><span class="qn">2.1</span><span class="lvl e">easy</span> %rdi = a and %rsi = b. Give the formula stored in %rax.
 <pre>(a) leaq 12(%rdi),%rax         (b) leaq (%rsi,%rsi),%rax          (c) leaq (%rdi,%rsi,8),%rax
 (d) leaq -1(%rsi,%rsi,4),%rax  (e) leaq 0x20(%rdi,%rdi,2),%rax    (f) leaq (,%rdi,4),%rax</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">2.2</span><span class="lvl m">medium</span> Memory: M[0x500] = 0x4, M[0x508] = 0x10, M[0x510] = 0xFF, M[0x518] = 0x2. Registers: %rax = 0x500, %rbx = 0x2, %rcx = 0x8. Each instruction is independent. Give the destination and the new value, showing your work.
+<div class="q" data-uses="M2"><span class="qn">2.2</span><span class="lvl m">medium</span> Memory: M[0x500] = 0x4, M[0x508] = 0x10, M[0x510] = 0xFF, M[0x518] = 0x2. Registers: %rax = 0x500, %rbx = 0x2, %rcx = 0x8. Each instruction is independent. Give the destination and the new value, showing your work.
 <pre>(a) addq %rcx,(%rax)          (b) subq %rbx,0x10(%rax)        (c) imulq %rbx,%rcx
 (d) shlq $4,8(%rax)           (e) orq $1,(%rax,%rcx,2)        (f) incq (%rax,%rbx,4)
 (g) leaq (%rax,%rbx,8),%rdx   (h) sarq $1,%rcx</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">2.3</span><span class="lvl m">medium</span> Fill in the C with an annotation table and a numeric check. Here x is in %rdi, y in %rsi and z in %rdx.
+<div class="q" data-uses="M3 M4"><span class="qn">2.3</span><span class="lvl m">medium</span> Fill in the C with an annotation table and a numeric check. Here x is in %rdi, y in %rsi and z in %rdx.
 <div class="two"><pre>long calc(long x, long y, long z) {
   long t1 = ________;
   long t2 = ________;
@@ -61,16 +58,16 @@ Check (x=1, y=2, z=3): t1 = 3, t2 = 0, t3 = −1, t4 = 3 − (−1) = 4.
   ret</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">2.4</span><span class="lvl m">medium</span> Using only leaq, shifts, add and sub (no imul), write assembly with x in %rdi and the result in %rax for (a) x·36, (b) 7x + 3, (c) x·10.
+<div class="q" data-uses="M7"><span class="qn">2.4</span><span class="lvl m">medium</span> Using only leaq, shifts, add and sub (no imul), write assembly with x in %rdi and the result in %rax for (a) x·36, (b) 7x + 3, (c) x·10.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">2.5</span><span class="lvl m">medium</span> Fill in the constants: <code>long m(long x) { return x * __ + __; }</code>
+<div class="q" data-uses="M1 M3"><span class="qn">2.5</span><span class="lvl m">medium</span> Fill in the constants: <code>long m(long x) { return x * __ + __; }</code>
 <pre>m:  leaq (%rdi,%rdi,2), %rax
     leaq 5(%rdi,%rax,4), %rax
     ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">2.6</span><span class="lvl h">harder</span> Fill in the C. Here a is in %rdi and b in %rsi. The compiler merged some steps.
+<div class="q" data-uses="M3 M5"><span class="qn">2.6</span><span class="lvl h">harder</span> Fill in the C. Here a is in %rdi and b in %rsi. The compiler merged some steps.
 <div class="two"><pre>unsigned long mix(unsigned long a,
                   unsigned long b) {
   unsigned long t1 = a ^ b;
@@ -88,7 +85,7 @@ Check (x=1, y=2, z=3): t1 = 3, t2 = 0, t3 = −1, t4 = 3 − (−1) = 4.
 (Hint: t2 should use the value from the leaq line, and t3 should use the shift.)
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">2.7</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi, y in %rsi and z in %rdx.
+<div class="q" data-uses="M3 M4"><span class="qn">2.7</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi, y in %rsi and z in %rdx.
 <div class="two"><pre>long arith4(long x, long y, long z) {
   long t1 = ________;
   long t2 = ________;
@@ -105,20 +102,20 @@ Check (x=1, y=2, z=3): t1 = 3, t2 = 0, t3 = −1, t4 = 3 − (−1) = 4.
   ret</pre></div>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">2.8</span><span class="lvl e">easy</span> Fill in the expression: <code>long scale4(long x, long y, long z) { long t = ________; return t; }</code>
+<div class="q" data-uses="M1"><span class="qn">2.8</span><span class="lvl e">easy</span> Fill in the expression: <code>long scale4(long x, long y, long z) { long t = ________; return t; }</code>
 <pre>scale4:  leaq (%rsi,%rsi,4), %rax
          leaq (%rdi,%rax,2), %rax
          leaq -3(%rax,%rdx,8), %rax
          ret</pre>
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">2.9</span><span class="lvl m">medium</span> Write the assembly for each function (x in %rdi, y in %rsi, z in %rdx).
+<div class="q" data-uses="M5 M6 M7"><span class="qn">2.9</span><span class="lvl m">medium</span> Write the assembly for each function (x in %rdi, y in %rsi, z in %rdx).
 <pre>(a) long f1(long x, long y, long z) { return (x + y) * (z - 4); }
 (b) long f2(long x, long y)         { return ~((x &gt;&gt; 3) ^ y); }
 (c) long f3(long x)                 { return x &amp; -x; }</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">2.10</span><span class="lvl e">easy</span> Short answers. (a) What does <code>xorl %eax,%eax</code> do, and why do compilers use it? (b) Give two reasons the compiler uses leaq for arithmetic. (c) Why is there only one add instruction for both signed and unsigned numbers? (d) Which constants can leaq multiply by in one instruction, and what form does each take?
+<div class="q" data-uses="M1 M8"><span class="qn">2.10</span><span class="lvl e">easy</span> Short answers. (a) What does <code>xorl %eax,%eax</code> do, and why do compilers use it? (b) Give two reasons the compiler uses leaq for arithmetic. (c) Why is there only one add instruction for both signed and unsigned numbers? (d) Which constants can leaq multiply by in one instruction, and what form does each take?
 <div class="work m"></div></div>
 
 <!--SOLUTIONS-->

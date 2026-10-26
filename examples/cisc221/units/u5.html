@@ -1,17 +1,16 @@
 <!--METHOD-->
-<div class="method"><h4>Solving method — stack, call/ret, frames, recursion</h4>
-<ol>
-<li><b>Stack traces:</b> keep a table with columns <b>instruction | %rip | %rsp | top of stack | key registers</b>. Use these rules:
-  <ul><li>push: rsp −= 8, then write.</li><li>pop: read, then rsp += 8.</li><li>call: push (call address + call length), then rip = target.</li><li>ret: rip = M[rsp], then rsp += 8.</li></ul></li>
-<li><b>Argument location:</b> count the integer/pointer arguments in order: %rdi, %rsi, %rdx, %rcx, %r8, %r9 (use the size-matched name, e.g. %esi for an int). Arguments 7+ are at 8(%rsp), 16(%rsp), … when the callee starts. Floating-point arguments use %xmm0, %xmm1, … with their own separate count.</li>
-<li><b>Locals on the stack:</b> <code>subq $N,%rsp</code> allocates the space, and <code>k(%rsp)</code> is a local. A local goes on the stack when its <b>address is taken</b> (leaq k(%rsp)), or when it is an array or struct. Draw the frame from high addresses (return address) down to %rsp.</li>
-<li><b>Register-saving:</b> a value needed <i>after</i> a call must live in a callee-saved register (rbx, rbp, r12–r15) or on the stack. Using a callee-saved register means push it in the prologue and pop it, in reverse order, in the epilogue.</li>
-<li><b>Recursion → C:</b> answer four questions.
-  <ol type="a"><li>Base case: which test jumps straight to ret, and what is %rax then?</li>
-  <li>Saved value: what goes into %rbx (or another callee-saved register)?</li>
-  <li>Recursive argument: how is %rdi changed before the call?</li>
-  <li>Combine: what is done to %rax after the call?</li></ol></li>
+<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
+<ol class="mlist">
+<li data-m="M1"><b>push / pop.</b> push: rsp −= 8, then store. pop: load, then rsp += 8 (memory is not erased). Trace with columns rsp | memory cells | registers.</li>
+<li data-m="M2"><b>call / ret traces.</b> Use a table: PC | instruction | key registers | %rsp | *%rsp. call: push the return address (call address + call length = the next instruction), then rip = target. ret: rip = M[rsp], rsp += 8. State whether you show values before or after each instruction.</li>
+<li data-m="M3"><b>Where arguments are.</b> Integer and pointer arguments: %rdi, %rsi, %rdx, %rcx, %r8, %r9, using the size-matched name (int → %esi, short → %dx, char → %cl). Args 7+ are at 8(%rsp), 16(%rsp)… on entry, because (%rsp) holds the return address. FP arguments go in %xmm0, %xmm1… with their own count. Return value in %rax (%xmm0 for FP).</li>
+<li data-m="M4"><b>Frames and locals.</b> <code>subq $N,%rsp</code> allocates the frame, and <code>k(%rsp)</code> is a local. A local lives on the stack if its address is taken (leaq k(%rsp)), or if it is an array or struct. Draw the frame from the return address (highest) down to %rsp.</li>
+<li data-m="M5"><b>Caller- vs. callee-saved.</b> Callee-saved: %rbx %rbp %r12–%r15 (+%rsp); a callee that uses them must push and pop them. Caller-saved: %rax, the arg registers, %r10, %r11, all xmm; any call may destroy them.</li>
+<li data-m="M6"><b>Writing a function that makes calls.</b> List the values needed <b>after</b> each call, and put each in a callee-saved register (push it first). Set the args, call, and copy %rax out if you need it later. Finally pop in <b>reverse</b> order and ret. (<code>subq $8,%rsp</code> keeps 16-byte alignment and is optional detail.)</li>
+<li data-m="M7"><b>Recursion → C.</b> Answer four questions: <b>base case</b> (which test jumps to ret, and what is %rax?), <b>saved value</b> (what goes into %rbx?), <b>recursive argument</b> (how is %rdi changed?), <b>combine</b> (what happens to %rax after the call?). Then evaluate a small input.</li>
+<li data-m="M8"><b>Recursion tables and stack depth.</b> Call table: level | incoming arg | saved register | return value. Fill it downward until the base case, then fill the returns upward. Stack drop per recursing level = 8 × pushes + 8 (the return address). Multiply by the number of levels.</li>
 </ol></div>
+
 
 <div class="showwork"><h4>How to show your work: model answer (3.35 rfun)</h4>
 <pre>rfun:                      x in %rdi
@@ -41,10 +40,10 @@ T1     0x400510  sub $0x5,%rdi      95     —      0x...e818   0x400565   entry
 <div class="deck"><b>From the practice deck, also do:</b> Problem 22 (3.35). Lecture must-knows: multstore/mult2 control flow, call_incr, call_incr2 (callee-saved), and the pcount_r trace with x = 0110.</div>
 
 <!--PRACTICE-->
-<div class="q"><span class="qn">5.1</span><span class="lvl e">easy</span> %rsp = 0x8000, %rax = 0xA and %rbx = 0xB. Run <code>pushq %rax ; pushq %rbx ; popq %rax ; popq %rbx</code>. Give %rax, %rbx and %rsp at the end, and the contents of 0x7FF8 and 0x7FF0.
+<div class="q" data-uses="M1"><span class="qn">5.1</span><span class="lvl e">easy</span> %rsp = 0x8000, %rax = 0xA and %rbx = 0xB. Run <code>pushq %rax ; pushq %rbx ; popq %rax ; popq %rbx</code>. Give %rax, %rbx and %rsp at the end, and the contents of 0x7FF8 and 0x7FF0.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">5.2</span><span class="lvl m">medium</span> Fill in a trace table (PC, instruction, %rdi, %rax, %rsp, *%rsp) from main's call until control returns to 0x400565. Before the call: %rsp = 0x7fffffffe820 and %rdi = 100.
+<div class="q" data-uses="M2"><span class="qn">5.2</span><span class="lvl m">medium</span> Fill in a trace table (PC, instruction, %rdi, %rax, %rsp, *%rsp) from main's call until control returns to 0x400565. Before the call: %rsp = 0x7fffffffe820 and %rdi = 100.
 <pre>0000000000400500 &lt;leaf&gt;:                     0000000000400510 &lt;top&gt;:
   400500: lea  0x2(%rdi),%rax                  400510: sub   $0x5,%rdi
   400504: retq                                 400514: callq 400500 &lt;leaf&gt;
@@ -54,10 +53,10 @@ main:                                          40051c: retq
   400565: mov   %rax,%rdx</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">5.3</span><span class="lvl e">easy</span> <code>void proc(long a1, int a2, short a3, char a4, long *a5, int *a6, long a7, char a8, double d1, float f2);</code> Where is each argument when proc starts executing? Use the size-correct register names.
+<div class="q" data-uses="M3"><span class="qn">5.3</span><span class="lvl e">easy</span> <code>void proc(long a1, int a2, short a3, char a4, long *a5, int *a6, long a7, char a8, double d1, float f2);</code> Where is each argument when proc starts executing? Use the size-correct register names.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">5.4</span><span class="lvl m">medium</span> <code>void addto(long *dst, long *src) { *dst += *src; }</code>. For the function below: (a) draw the stack frame, (b) give the values of the locals after the call, (c) give the return value, and (d) write the C.
+<div class="q" data-uses="M4"><span class="qn">5.4</span><span class="lvl m">medium</span> <code>void addto(long *dst, long *src) { *dst += *src; }</code>. For the function below: (a) draw the stack frame, (b) give the values of the locals after the call, (c) give the return value, and (d) write the C.
 <pre>frame:
   subq  $24, %rsp
   movq  $5, 8(%rsp)
@@ -71,10 +70,10 @@ main:                                          40051c: retq
   ret</pre>
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">5.5</span><span class="lvl m">medium</span> Write the assembly for <code>long twice(long x) { long a = f(x); long b = f(a + x); return a * b + x; }</code>. Use callee-saved registers correctly, and explain which values must survive which calls.
+<div class="q" data-uses="M5 M6"><span class="qn">5.5</span><span class="lvl m">medium</span> Write the assembly for <code>long twice(long x) { long a = f(x); long b = f(a + x); return a * b + x; }</code>. Use callee-saved registers correctly, and explain which values must survive which calls.
 <div class="work l"></div></div>
 
-<div class="q"><span class="qn">5.6</span><span class="lvl m">medium</span> n is in %rdi. Write the C, give rs(3), and find how many bytes %rsp has dropped when rs(0) starts, compared with the entry of rs(3).
+<div class="q" data-uses="M7 M8"><span class="qn">5.6</span><span class="lvl m">medium</span> n is in %rdi. Write the C, give rs(3), and find how many bytes %rsp has dropped when rs(0) starts, compared with the entry of rs(3).
 <pre>rs:   movl  $0, %eax
       testq %rdi, %rdi
       jle   .L1
@@ -87,10 +86,10 @@ main:                                          40051c: retq
 .L1:  ret</pre>
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">5.7</span><span class="lvl m">medium</span> For the lecture's pcount_r with x = 5 (101₂), give a call table: for each level, the incoming %rdi, the value stored in %rbx, and the %rax it returns.
+<div class="q" data-uses="M8"><span class="qn">5.7</span><span class="lvl m">medium</span> For the lecture's pcount_r with x = 5 (101₂), give a call table: for each level, the incoming %rdi, the value stored in %rbx, and the %rax it returns.
 <div class="work m"></div></div>
 
-<div class="q"><span class="qn">5.8</span><span class="lvl e">easy</span> True or false, with a reason for each.
+<div class="q" data-uses="M5"><span class="qn">5.8</span><span class="lvl e">easy</span> True or false, with a reason for each.
 (a) A callee may freely change %r12 without saving it.
 (b) After a call, the caller can trust that %rcx is unchanged.
 (c) %rax is caller-saved.
@@ -98,7 +97,7 @@ main:                                          40051c: retq
 (e) Local arrays always live in registers.
 <div class="work s"></div></div>
 
-<div class="q"><span class="qn">5.9</span><span class="lvl h">harder</span> Here x is in %rdi. Write the C (base case, saved value, recursive argument, combine), and give rf(13).
+<div class="q" data-uses="M7 M8"><span class="qn">5.9</span><span class="lvl h">harder</span> Here x is in %rdi. Write the C (base case, saved value, recursive argument, combine), and give rf(13).
 <pre>rf:   pushq %rbx
       movq  %rdi, %rbx
       movl  $1, %eax
@@ -118,13 +117,14 @@ main:                                          40051c: retq
 pushq %rbx   rsp = 0x7FF0, M[0x7FF0] = 0xB
 popq  %rax   rax = 0xB,  rsp = 0x7FF8
 popq  %rbx   rbx = 0xA,  rsp = 0x8000
-Final: rax = 0xB, rbx = 0xA (swapped), rsp = 0x8000; memory still holds 0x7FF8: 0xA, 0x7FF0: 0xB
+Final: rax = 0xB, rbx = 0xA (swapped), rsp = 0x8000
+       memory still holds 0x7FF8: 0xA, 0x7FF0: 0xB
 (pop does not erase memory).</pre></div>
 
 <div class="sol"><span class="qn">5.2</span>
 <pre>PC        Instruction          %rdi  %rax  %rsp            *%rsp      Note
 0x400560  callq top            100   —     0x7fffffffe820  —          main calls top
-0x400510  sub $0x5,%rdi        95    —     0x7fffffffe818  0x400565   entered top (ret addr pushed)
+0x400510  sub $0x5,%rdi        95    —     0x7fffffffe818  0x400565   entered top
 0x400514  callq leaf           95    —     0x7fffffffe818  0x400565   top calls leaf
 0x400500  lea 0x2(%rdi),%rax   95    97    0x7fffffffe810  0x400519   entered leaf
 0x400504  retq                 95    97    0x7fffffffe810  0x400519   leaf returns
@@ -191,7 +191,8 @@ Result pcount_r(5) = 2.</pre></div>
 (e) False: arrays (and anything whose address is taken) live in memory (the stack frame).</pre></div>
 
 <div class="sol"><span class="qn">5.9</span>
-<pre>(a) base: x ≤ 1 (unsigned, jbe) → return 1   — note the push happens BEFORE the test, so .L2 pops
+<pre>(a) base: x ≤ 1 (unsigned, jbe) → return 1
+    (the push happens BEFORE the test, so .L2 must pop too)
 (b) saved: rbx = x   (c) arg: x &gt;&gt; 1   (d) combine: (x &amp; 1) + 2·rv
 unsigned long rf(unsigned long x) {
   if (x &lt;= 1) return 1;
