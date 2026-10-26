@@ -1,42 +1,186 @@
 <!--METHOD-->
-<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
-<ol class="mlist">
-<li data-m="M1"><b>Find and classify the loop.</b> Circle every jump to an <i>earlier</i> label (the back-edge). No jump before the loop → <b>do-while</b>. <code>jmp</code> to a test at the bottom first → <b>jump-to-middle</b> (-Og). A test before the loop that jumps past it, plus the same test at the bottom → <b>guarded-do</b> (-O1).</li>
-<li data-m="M2"><b>Label the parts and write the C.</b> INIT = the movs before the loop. TEST = the cmp/test + back-edge jump: the C condition is the back-edge jump's condition (it is taken when the loop continues), and <code>cmp b,a</code> reads as a ? b. UPDATE = the counter change just before the test. BODY = the rest. Write a while loop, or a for loop if one variable has init/test/update.</li>
-<li data-m="M3"><b>Iteration table / "what does it compute?".</b> Trace 2–3 small inputs in a table (one row per iteration: variables + test result). Look for the pattern (powers, sums, bit counts) and state it in plain English.</li>
-<li data-m="M4"><b>Loop edge cases.</b> A do-while runs the body at least once (check n = 0 or a negative input). A test before the loop is an early exit or guard. If the first test is known to be true (e.g. i = 8; i != 0), the compiler <b>drops the guard</b>, so it looks like a plain do-while.</li>
-<li data-m="M5"><b>C loop → goto → assembly.</b> for → <code>Init; while (T) { Body; Update; }</code>. Guarded-do: <code>Init; if (!T) goto done; loop: Body; Update; if (T) goto loop; done:</code>. In assembly: the initial values, the guard compare + jump to done, the loop label, the body, the update, the compare, a jump back on T.</li>
-<li data-m="M6"><b>Switch: offset and range.</b> Offset k from <code>subq $k</code> / <code>addq $−k</code> / <code>leaq −k(%rdi)</code> (0 if none), so index i ↔ case i + k. Largest case = n + k from <code>cmpq $n</code>. <code>ja</code> → the default label, and it also catches negatives (unsigned).</li>
-<li data-m="M7"><b>Switch: mapping table.</b> Write <b>index → case value → label</b> for every table entry. Entries equal to the default label are <b>missing</b> cases. A label that appears twice means <b>shared</b> cases.</li>
-<li data-m="M8"><b>Switch: translate the blocks.</b> Translate each label's code into C. A block that does not end in jmp/ret <b>falls through</b> into the next label. Evaluate the given inputs by following the table.</li>
-</ol></div>
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Find and classify the loop</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.26 part A style) Which loop translation did the compiler use?
+<pre>fun:   movl  $0, %eax
+       jmp   .L5
+.L6:   xorq  %rdi, %rax
+       shrq  %rdi
+.L5:   testq %rdi, %rdi
+       jne   .L6
+       ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Back-edge: jne .L6 (it jumps to an EARLIER label, so that is the loop).
+Before the loop body there is an unconditional jmp .L5 to the test at the bottom.
+→ jump-to-middle translation of a while loop (gcc -Og).</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Assembly has no loop keywords. A loop is simply a <b>jump backwards</b> (the back-edge) that repeats some code while a condition holds. There are three standard shapes. You must recognise them because each one maps to a different C form:</p>
+<table><tr><th>Shape</th><th>Goto form</th><th>Recognise it by</th></tr>
+<tr><td><b>do-while</b></td><td><code>loop: Body; if (Test) goto loop;</code></td><td>the body comes first, and the only test is at the bottom</td></tr>
+<tr><td><b>while, jump-to-middle</b> (-Og)</td><td><code>goto test; loop: Body; test: if (Test) goto loop;</code></td><td>an unconditional <code>jmp</code> to the test before the body</td></tr>
+<tr><td><b>while, guarded-do</b> (-O1)</td><td><code>if (!Test) goto done; loop: Body; if (Test) goto loop; done:</code></td><td>the test appears twice: a guard before the loop and the test at the bottom</td></tr></table>
+<p>Why do the while forms exist? A while loop may run <b>zero</b> times, so the test must happen before the first iteration. Jump-to-middle does that by jumping to the bottom test first. Guarded-do does it with a separate test up front, then runs a do-while (which can be faster).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Circle the jump to an earlier label (the back-edge).</li><li>Look at what comes before the loop label: nothing, a <code>jmp</code> to the test, or a test that jumps past the loop.</li><li>Name it: do-while, jump-to-middle or guarded-do.</li></ol></div></div>
 
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Label the parts and write the C</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.24 style) Fill in <code>long result = __; while (__) { result = __; a = __; } return result;</code> for the code below, where a is in %rdi and b in %rsi.
+<pre>loop:  movl  $0, %eax
+       jmp   .L2
+.L3:   addq  %rsi, %rax
+       addq  $3, %rdi
+.L2:   cmpq  %rsi, %rdi
+       jl    .L3
+       ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>movl $0,%eax            INIT     result = 0
+jmp .L2                 (jump-to-middle)
+.L3: addq %rsi,%rax     BODY     result = result + b
+     addq $3,%rdi       UPDATE   a = a + 3
+.L2: cmpq %rsi,%rdi     TEST     a : b
+     jl .L3             back-edge taken while a &lt; b   → while (a &lt; b)
 
-<div class="showwork"><h4>How to show your work: model answer (3.24 style)</h4>
-<pre>Map: a → rdi, b → rsi
-loop_while:
-  movl $1,%eax             result = 1                  INIT
-  jmp  .L2                 → jump-to-middle (-Og)
-.L3:                       ◄──────────────┐ loop top
-  leaq (%rdi,%rsi),%rdx    rdx = a + b    │            BODY
-  imulq %rdx,%rax          result *= a+b  │
-  addq $1,%rdi             a = a + 1      │            UPDATE
-.L2:                                      │
-  cmpq %rsi,%rdi           a : b          │            TEST
-  jl   .L3                 if a &lt; b ──────┘ (back-edge → while (a &lt; b))
-  ret                      return result
+long result = 0;  while (a &lt; b) { result = result + b;  a = a + 3; }  return result;</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Every loop has four parts. Labelling them turns the assembly into C almost mechanically:</p>
+<ul><li><b>INIT</b>: instructions before the loop that set starting values.</li>
+<li><b>TEST</b>: the compare plus the <b>back-edge jump</b>. The back-edge is taken when the loop <i>continues</i>, so the back-edge's condition <b>is</b> the C loop condition. (Contrast if-statements, where the jump is the negation, Unit 3 M5. A guard before a guarded-do loop is also negated.) Remember that <code>cmp b,a</code> reads as "a ? b".</li>
+<li><b>UPDATE</b>: the change to the loop variable, usually just before the test.</li>
+<li><b>BODY</b>: everything else inside the loop.</li></ul>
+<p>Then write <code>INIT; while (TEST) { BODY; UPDATE; }</code>. If one variable is initialised, tested and updated, you can write it as <code>for (INIT; TEST; UPDATE) BODY</code>.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Annotate the lines and mark INIT / BODY / UPDATE / TEST.</li><li>Read the back-edge condition as "a ? b": that is the while condition.</li><li>Write the while (or for), then check it with M3.</li></ol></div></div>
 
-C:  long result = 1;  while (a &lt; b) { result = result * (a + b);  a = a + 1; }  return result;
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Iteration table and "what does it compute?"</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.26 part C style) For the <code>fun</code> code in M1 (x is unsigned): write the C, and describe in English what the function computes.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>long fun(unsigned long x) { long val = 0; while (x) { val ^= x; x &gt;&gt;= 1; } return val; }
+Trace x = 6 (110₂):   iter   x      val (after val ^= x)
+                      1      110    110
+                      2      011    101
+                      3      001    100
+                      stop   000    → returns 100₂ = 4
+Bit 0 of val is the XOR of all the bits of x: 0 ^ 1 ^ 1 = 0.
+(Practice Problem 3.26 then does "return val &amp; 1": the PARITY of x,
+ 1 if x has an odd number of 1-bits, 0 if even.)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>When a question asks <b>"what does this compute?"</b>, the code usually implements a well-known small algorithm. Tracing 2–3 small inputs in a table (one row per iteration: the variables plus whether the test passes) reveals the pattern. Typical patterns in this course:</p>
+<ul><li><code>x &amp; 1</code> + <code>x &gt;&gt;= 1</code> in a loop → working through x <b>bit by bit</b> (popcount = number of 1s, parity, bit length, trailing zeros).</li>
+<li><code>val = (val &lt;&lt; 1) | (x &amp; 1)</code> → <b>reversing</b> bits (Practice Problem 3.28).</li>
+<li><code>result *= a</code> with a counter → powers or factorials. <code>result += …</code> → sums.</li></ul>
+<p>State the answer in plain English, and back it up with your trace ("e.g. f(6) = …").</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the C first (M2).</li><li>Trace small inputs in a table.</li><li>Name the pattern in one sentence, and quote one traced example.</li></ol></div></div>
 
-Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
-                              0     1   yes        1·(1+3) = 4
-                              1     2   yes        4·(2+3) = 20
-                              2     3   no  → return 20</pre>
-<p><b>Switch mapping table</b> (write this every time):</p>
-<pre>index  case(=index+k)  label   meaning
-0      10              .L3     case 10
-1      11              .Ldef   missing → default
-...</pre></div>
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Loop edge cases</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.28 part B style) This code has neither a test before the loop nor a jump to the middle. Explain why.
+<pre>movl $32,%edx ; movl $0,%eax
+.L2: ... body ... ; subq $1,%rdx ; jne .L2 ; ret          # for (i = 32; i != 0; i--)</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>The loop is for (i = 32; i != 0; i--). Its first test (32 != 0) is always true, so the
+compiler knows the body runs at least once. The guard (or jump-to-middle) is only
+needed when the loop might run zero times, so it was removed: the loop became a
+plain do-while.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Small details change what a loop does, and questions test them:</p>
+<ul><li><b>A do-while always runs the body at least once.</b> For an input that fails the test immediately (n = 0, a negative number), the do-while still gives one iteration's result, while a while loop gives the initial value.</li>
+<li><b>A guard can disappear.</b> If the compiler can prove the first test is true (a constant start like i = 32), it drops the guard, and the code looks like a do-while even though the C was a for or while.</li>
+<li><b>Early-exit tests</b> before a loop (e.g. <code>if (x == 0) return 0;</code>) can look like a guard. Check whether the same test reappears at the bottom.</li>
+<li><b>The compiler can rewrite the test</b>: <code>i &lt; 5</code> may become <code>i &lt;= 4</code> (jbe/jle), and unsigned loop variables use unsigned jumps.</li></ul></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Ask: could this loop run zero times? Is that case handled before the loop?</li><li>Test one input that fails immediately.</li><li>If a guard is "missing", look for a constant start value that makes the first test true.</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>C loop → goto → assembly</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+For <code>long sum(long n) { long s = 0; for (long i = 1; i &lt;= n; i++) s += i; return s; }</code>, write (a) the while version, (b) the jump-to-middle goto version, and (c) the -Og assembly.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) long s = 0; long i = 1;          (c) sum:                    # n in %rdi
+    while (i &lt;= n) { s += i; i++; }        movl  $0, %eax          # s = 0
+(b) long s = 0; long i = 1;                  movl  $1, %edx          # i = 1
+    goto test;                               jmp   .L2               # goto test
+  loop:                                  .L3: addq  %rdx, %rax          # s += i
+    s += i;  i++;                            addq  $1, %rdx          # i++
+  test:                                  .L2: cmpq  %rdi, %rdx          # i : n
+    if (i &lt;= n) goto loop;                   jle   .L3               # if i ≤ n loop
+    return s;                                ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Going from C to assembly follows the same templates in reverse. A <b>for</b> loop is first rewritten as <code>Init; while (Test) { Body; Update; }</code> (the lecture's pcount_for → pcount_for_while). The while is then put into one of the goto shapes (M1). Each goto line maps to one or two instructions:</p>
+<ul><li><code>goto test</code> → <code>jmp .Ltest</code>.</li>
+<li><code>if (Test) goto loop</code> → <code>cmp</code> + a jump whose condition is the <b>test itself</b> (not negated, because the back-edge is taken when the loop continues).</li>
+<li>For guarded-do, the guard is <code>if (!Test) goto done</code> → cmp + the <b>negated</b> jump.</li></ul>
+<p>Keep each C variable in one register throughout, and comment every line.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>for → while (Init; while (Test) { Body; Update; }).</li><li>while → goto (jump-to-middle for -Og, guarded-do for -O1).</li><li>Translate line by line, choosing registers and the jump letters (test = back-edge, !test = guard).</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Switch: offset and range</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+A switch on x (in %rdi) starts like the code below. What are the smallest and largest case values, and which values of x go straight to the default?
+<pre>subq $100, %rdi ; cmpq $5, %rdi ; ja .Ldef ; jmp *.T(,%rdi,8)</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>subq $100 → index = x − 100 → smallest case = 100
+cmpq $5 ; ja → index 0..5 valid → largest case = 100 + 5 = 105
+Straight to default: x &lt; 100 (x − 100 is negative = huge unsigned → ja) and x &gt; 105.
+(Values 100..105 whose table entry is .Ldef also reach the default; see M7.)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>For a switch with many cases close together, GCC builds a <b>jump table</b>: an array of 8-byte code addresses, one for each possible value. It then jumps through it in one instruction, <code>jmp *.T(,%rdi,8)</code> (an <b>indirect</b> jump: fetch the address from memory at .T + 8·index and go there). That is faster than a chain of if-else tests.</p>
+<p>For that to work, the index must be a valid array index, 0 … n:</p>
+<ul><li>If the smallest case isn't 0, the compiler first <b>subtracts</b> it (subq $100, or leaq −100(%rdi), or addq for negative cases).</li>
+<li>Then <code>cmpq $n ; ja default</code> rejects anything above n. Because <b>ja is unsigned</b>, a negative index looks like a huge number and is rejected by the same single test.</li>
+<li>The scale is 8 because each table entry is an 8-byte address.</li></ul></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Offset k = the subtracted constant (0 if none) → smallest case = k.</li><li>Largest = (the cmp constant) + k.</li><li>Default: everything outside [k, max], plus the table entries pointing at the default label.</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Switch: mapping table</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+The table for the M6 switch is <code>.T: .quad .L3, .Ldef, .L4, .L3, .Ldef, .L5</code>. Which cases exist, which share code, and which are missing?</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>index   case (index + 100)   label
+0       100                  .L3
+1       101                  .Ldef   ← missing (goes to default)
+2       102                  .L4
+3       103                  .L3     ← shares code with 100
+4       104                  .Ldef   ← missing
+5       105                  .L5
+Cases: 100, 102, 103, 105.  Shared: 100 &amp; 103.  Missing: 101, 104.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The jump table has one entry for <b>every</b> value in the range, even the values with no case. Those entries hold the <b>default label</b>, which is how you spot a missing case. When two or more case labels share code in C (<code>case 100: case 103: …</code>), their entries hold the <b>same label</b>.</p>
+<p>The mapping table (index → case value → label) is the single most useful thing to write for any switch question. Everything else is read off it.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>One row per table entry: index, case = index + k, label.</li><li>Mark the default-label rows as missing, and repeated labels as shared.</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Switch: translate the blocks</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+The M6/M7 switch is in <code>long sw(long x, long y)</code> (y in %rsi), with the blocks below. Write the switch, and give sw(100, 4) and sw(102, 4).
+<pre>.L3:   leaq  (%rsi,%rsi,2), %rax     # case 100, 103
+       ret
+.L4:   addq  $1, %rsi                # case 102
+.L5:   movq  %rsi, %rax              # case 105
+       salq  $2, %rax
+       ret
+.Ldef: movl  $0, %eax
+       ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>.L3:   rax = 3y ; ret                       → case 100: case 103: return 3*y;
+.L4:   y = y + 1 ; no jmp/ret → falls into .L5  → case 102: y++;  /* fall through */
+.L5:   rax = y · 4 ; ret                     → case 105: return y * 4;   (y &lt;&lt; 2)
+.Ldef: rax = 0 ; ret                         → default: return 0;
+
+switch (x) {
+  case 100: case 103: return 3*y;
+  case 102: y++;          /* fall through */
+  case 105: return y * 4;
+  default:  return 0;
+}
+sw(100,4) = 12      sw(102,4) = (4+1)·4 = 20</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Each label is the code for one case (or a group of shared cases). Translate it like any straight-line code (Unit 2). The special thing to look for is <b>fall-through</b>: in C, a case without <code>break</code> keeps running into the next case. In assembly that shows up as a block <b>with no jmp or ret at its end</b>, placed just before the next case's label, so execution simply continues into it (.L4 → .L5 above). A <code>break</code> becomes a jmp to the end (or a ret).</p>
+<p>Watch for blocks that use a register whose value was set earlier. In Practice Problem 3.31, case 4 jumps straight to the final store, so the value it stores is whatever was already in the register (the parameter a).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Use the mapping table (M7) to attach case numbers to labels.</li><li>Translate each block, and mark every block that has no jmp/ret as a fall-through.</li><li>Write the switch, then evaluate the given inputs by following the table.</li></ol></div></div>
+
 <div class="deck"><b>From the practice deck, also do:</b> Problem 15 (3.23), 17 (3.24), 18 (3.25), 19 (3.26), 20 (3.28), 21 (3.31 switch). Also learn the lecture's pcount_do, pcount_while and switch_eg.</div>
 
 <!--PRACTICE-->

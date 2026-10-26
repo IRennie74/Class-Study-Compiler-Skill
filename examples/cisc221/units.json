@@ -11,12 +11,7 @@
       "movz/movs widen according to the SOURCE type; narrowing = load at full size, store the low part.",
       "Toolchain: .c → (gcc -S) .s → (as) .o → (ld + .a) executable; objdump -d disassembles. ISA vs microarchitecture."
     ],
-    "learn": [
-      1,
-      2,
-      3,
-      4
-    ]
+    "learn": []
   },
   {
     "n": "2",
@@ -29,10 +24,7 @@
       "Multiply tricks: (r,r,2) = 3r, (r,r,4) = 5r, (r,r,8) = 9r, then salq $k multiplies by 2^k.",
       "add/sub/imul are the same for signed and unsigned. xor r,r = 0. cqto + idivq does signed division (quotient in rax, remainder in rdx)."
     ],
-    "learn": [
-      5,
-      6
-    ]
+    "learn": []
   },
   {
     "n": "3",
@@ -45,11 +37,7 @@
       "setX writes 1 byte → movzbl. The compiler jumps on the NEGATED C test to skip the then-block.",
       "cmov: both values are computed, then one is chosen. Not used when a side might fault, be expensive, or have side effects."
     ],
-    "learn": [
-      7,
-      8,
-      9
-    ]
+    "learn": []
   },
   {
     "n": "4",
@@ -61,10 +49,7 @@
       "Switch: jump table of 8-byte addresses, jmp *.L(,%reg,8). One unsigned ja catches both below and above the range.",
       "Offset subtraction → smallest case; cmp constant + offset → largest case. Entries equal to default = missing; repeated labels = shared; no jmp at the end of a block = fall-through."
     ],
-    "learn": [
-      10,
-      11
-    ]
+    "learn": []
   },
   {
     "n": "5",
@@ -77,11 +62,7 @@
       "Callee-saved: %rbx %rbp %r12–%r15 (+%rsp). Caller-saved: %rax, the arg registers, %r10, %r11, all xmm.",
       "Frame: return addr | saved regs | locals | argument build area. Locals go on the stack if their address is taken, or if they are arrays/structs, or if registers run out."
     ],
-    "learn": [
-      12,
-      13,
-      14
-    ]
+    "learn": []
   },
   {
     "n": "6",
@@ -94,9 +75,7 @@
       "Fixed N → shifts and leaq; variable n → imulq.",
       "Reverse-engineering dimensions: the multiplier of the first index = the column count."
     ],
-    "learn": [
-      15
-    ]
+    "learn": []
   },
   {
     "n": "7",
@@ -109,9 +88,6 @@
       "x86 is little endian (least significant byte at the lowest address).",
       "XMM0–15: FP args in %xmm0.., return in %xmm0, all caller-saved. ss/sd scalar, ps/pd packed (SIMD)."
     ],
-    "learn": [
-      16,
-      17
-    ]
+    "learn": []
   }
 ]

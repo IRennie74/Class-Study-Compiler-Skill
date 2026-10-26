@@ -10,7 +10,7 @@ B=${1:?usage: build.sh BUILD_DIR OUT_DIR PREFIX}; B=${B:A}
 OUT=${2:?usage: build.sh BUILD_DIR OUT_DIR PREFIX}
 P=${3:?usage: build.sh BUILD_DIR OUT_DIR PREFIX}
 mkdir -p "$OUT"
-[ -f "$B/style.css" ] || cp "$SKILL/templates/style.css" "$B/style.css"
+cp "$SKILL/templates/style.css" "$B/style.css"   # always use the skill's current styles
 
 CH=""
 for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \

@@ -1,29 +1,158 @@
 <!--METHOD-->
-<div class="method"><h4>Methods for this unit: each practice problem lists the ones it uses</h4>
-<ol class="mlist">
-<li data-m="M1"><b>Sizes and 1-D addresses.</b> Write K (the element size) first: char 1, short 2, int 4, long/double/<b>any pointer</b> 8. Total = K·L. &amp;A[i] = x + K·i.</li>
-<li data-m="M2"><b>Expression tables.</b> Decide the type first. An address (A+k, &amp;A[i]) → value = x + K·k → <code>leaq</code> into %rax. An element (A[k], *(A+i)) → value = M[x + K·k] → <code>mov</code> with the element's suffix into %ax/%eax/%rax. Pointer arithmetic scales by K. A pointer difference (&amp;A[i] − &amp;A[j]) is an element count (long) = i − j.</li>
-<li data-m="M3"><b>Scale limit.</b> The scale can only be 1, 2, 4 or 8. For A[2*i] with 8-byte elements (16i), first compute 2i (<code>leaq (%rsi,%rsi)</code>), then use scale 8.</li>
-<li data-m="M4"><b>Nested array addresses.</b> For T A[R][C]: &amp;A[i][j] = x + K(i·C + j), and row A[i] starts at x + i·C·K. sizeof = R·C·K. Only C (the 2nd dimension) is used in the address.</li>
-<li data-m="M5"><b>Writing nested access without imul.</b> Build i·C with leaq/shift/sub (7i = 8i − i, 5i = (i,i,4)), add j, then <code>mov A(,%reg,K)</code>.</li>
-<li data-m="M6"><b>Finding dimensions from assembly.</b> Annotate until you see each array's index expression (e.g. 7i + j). The multiplier of the first index is that array's column count. Do each array separately, remembering which dimension is the 2nd one.</li>
-<li data-m="M7"><b>Multi-level arrays.</b> <code>T *A[]</code>: element = M[ M[x + 8i] + K·j ], which is two memory reads (first the row pointer, then the element). Rows are separate arrays and can have different lengths.</li>
-<li data-m="M8"><b>Fixed vs. variable dimensions.</b> A fixed N (#define) lets the compiler multiply by C·K with shifts and leaq. A variable n is unknown at compile time, so it needs <code>imulq</code> for n·i.</li>
-<li data-m="M9"><b>Array loops.</b> Use the Unit 4 loop methods, with the element accessed as <code>(base,i,K)</code>: i in a register, an init of 0, <code>addq $1</code> as the update, a cmp with n, and jl back (jump-to-middle at -Og).</li>
-</ol></div>
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Sizes and 1-D addresses</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.36 style) Fill in the element size, the total size and the address of element i for: <code>int A[6]; char *B[4]; short C[10]; double D[3];</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Array          Element size K   Total = K·L    &amp;element i
+int A[6]       4                24             x_A + 4i
+char *B[4]     8  (a pointer)   32             x_B + 8i
+short C[10]    2                20             x_C + 2i
+double D[3]    8                24             x_D + 8i</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>An array <code>T A[L]</code> is one <b>contiguous</b> block of L elements, each <b>K = sizeof(T)</b> bytes, so L·K bytes in total. Element i starts K·i bytes after the start: <b>&amp;A[i] = x<sub>A</sub> + K·i</b>.</p>
+<p>The only trap is K: char 1, short 2, int/float 4, long/double 8, and <b>every pointer is 8</b> on x86-64, whatever it points to (<code>char *</code>, <code>short **</code> …). The element type of <code>char *B[4]</code> is <code>char *</code>, a pointer, so K = 8.</p>
+<p>In assembly an array is just its start address. Indexing becomes the addressing mode (base, index, K), e.g. <code>movl (%rdi,%rsi,4),%eax</code> for int z[digit] (the lecture's get_digit). C does <b>no bounds checking</b>: val[5] on a 5-element array simply reads whatever is next in memory.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Find the element type, and write K (pointers = 8).</li><li>Total = K × L.</li><li>&amp;element i = x + K·i.</li></ol></div></div>
 
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Expression tables</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.37 style) <code>int E[]</code> starts at x<sub>E</sub> in %rdx, and the long i is in %rcx. For each expression give its type, its value, and assembly leaving it in %rax (pointer) or %eax (int): <code>E+1</code>, <code>E[2]</code>, <code>&amp;E[i]</code>, <code>E[i+1]</code>, <code>&amp;E[i]-E</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Expression   Type    Value             Assembly
+E+1          int *   x_E + 4           leaq 4(%rdx),%rax
+E[2]         int     M[x_E + 8]        movl 8(%rdx),%eax
+&amp;E[i]        int *   x_E + 4i          leaq (%rdx,%rcx,4),%rax
+E[i+1]       int     M[x_E + 4i + 4]   movl 4(%rdx,%rcx,4),%eax
+&amp;E[i]-E      long    i                 movq %rcx,%rax</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>In C, an array's name used in an expression acts as a <b>pointer to element 0</b>. That gives two kinds of expression:</p>
+<ul><li><b>Addresses</b> (type <code>T *</code>): E, E+k, &amp;E[i]. Pointer arithmetic is <b>scaled</b>: E+1 means "one element later" = +K bytes, not +1 byte. The value is a number, so the assembly is <b>leaq</b> (compute, don't read memory).</li>
+<li><b>Elements</b> (type <code>T</code>): E[k], *(E+k). The value is the memory <b>at</b> that address, so the assembly is <b>mov</b> with the element's size (movl for int, movw for short, movq for long).</li></ul>
+<p><b>Pointer difference</b>: subtracting two pointers into the same array gives the number of <b>elements</b> between them (type long), not bytes. &amp;E[i] − E = i.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Decide: address (pointer type) or element (T)?</li><li>Value: x + K·index, or M[x + K·index].</li><li>Address → leaq into %rax. Element → mov with T's suffix into the right-sized register.</li></ol></div></div>
 
-<div class="showwork"><h4>How to show your work: model answer (L14 sum_element: find M and N)</h4>
-<pre>long A[M][N];  long B[N][M];   return A[i][j] + B[j][i];     i → rdi, j → rsi, K = 8
-leaq (,%rdi,8),%rdx      rdx = 8i
-subq %rdi,%rdx           rdx = 7i
-addq %rsi,%rdx           rdx = 7i + j        ← index into A = i·N + j  ⇒ N = 7
-leaq (%rsi,%rsi,4),%rax  rax = 5j
-addq %rax,%rdi           rdi = 5j + i        ← index into B = j·M + i  ⇒ M = 5
-movq B(,%rdi,8),%rax     rax = M[B + 8(5j + i)]   = B[j][i]
-addq A(,%rdx,8),%rax     rax += M[A + 8(7i + j)]  = A[i][j]
-Answer: M = 5, N = 7</pre>
-<p><b>Address question format:</b> "&amp;A[2][3] = x<sub>A</sub> + K(i·C + j) = x + 4(2·5 + 3) = x + 52."</p></div>
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Scale limit</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>long L[]</code> is at %rdi and i is in %rsi. Write the assembly for <code>return L[3*i];</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Address = x_L + 8·(3i) = x_L + 24i       24 is not a legal scale (only 1, 2, 4, 8)
+leaq (%rsi,%rsi,2), %rax       # rax = 3i       (build the index first)
+movq (%rdi,%rax,8), %rax       # M[x_L + 8·3i]
+ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The addressing mode can multiply the index by only 1, 2, 4 or 8. If an index expression needs a bigger factor (3i elements of 8 bytes = 24i), the compiler <b>first computes the scaled index</b> into a register, using leaq, shifts or adds (Unit 2 M7), and then uses a legal scale for the element size. This is a common trap: writing <code>(%rdi,%rsi,24)</code> or <code>(%rdi,%rsi,16)</code> is invalid.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the byte offset as K × (index expression).</li><li>If the multiplier isn't 1/2/4/8, compute the index expression first.</li><li>Then use scale K.</li></ol></div></div>
+
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Nested array addresses</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>int M[4][5]</code> starts at address x. Give sizeof(M), the address of M[2][3], the start of row M[3], and a general formula for &amp;M[i][j].</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>R = 4 rows, C = 5 columns, K = 4
+sizeof(M)  = R·C·K = 4·5·4 = 80
+&amp;M[2][3]   = x + K(i·C + j) = x + 4(2·5 + 3) = x + 52
+row M[3]   = x + i·C·K = x + 3·5·4 = x + 60
+&amp;M[i][j]   = x + 4(5i + j) = x + 20i + 4j</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Memory is one long line of bytes, so a 2-D array must be <b>flattened</b>. C uses <b>row-major order</b>: all of row 0, then all of row 1, and so on. Element [i][j] is therefore <code>i·C + j</code> elements from the start (skip i full rows of C elements, then j more):</p>
+<pre>  [0][0] [0][1] … [0][C−1] │ [1][0] [1][1] … │ … │ [i][0] … [i][j]
+  &lt;──────── row 0 ────────&gt;│&lt;── row 1 ──&gt;    │   &lt;─ i·C elements ─&gt; + j</pre>
+<p>Multiply by K for bytes: <b>&amp;A[i][j] = x + K(i·C + j)</b>. Only <b>C</b> (the second dimension) appears. The number of rows R is needed only for sizeof. <code>A[i]</code> on its own is a whole row: an array of C elements, starting at x + i·C·K. The lecture's example is <code>zip_dig pgh[4]</code> = <code>int pgh[4][5]</code>, with rows 20 bytes apart.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write R, C and K.</li><li>&amp;A[i][j] = x + K(iC + j); row = x + iCK; size = RCK.</li><li>Substitute the numbers, showing each step.</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Writing nested access without imul</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write the assembly for <code>int T[6][9]; int get(long i, long j) { return T[i][j]; }</code>, with i in %rdi and j in %rsi, without imul.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>&amp;T[i][j] = T + 4(9i + j)
+get:  leaq (%rdi,%rdi,8), %rax     # 9i
+      addq %rsi, %rax              # 9i + j
+      movl T(,%rax,4), %eax        # M[T + 4(9i + j)]
+      ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Combine M4's formula with Unit 2's multiply-by-constant tricks. Build the <b>element index</b> i·C + j in a register (leaq/shift/sub for i·C, then add j), then let the addressing mode do the final ×K with the array's address as the displacement: <code>T(,%rax,4)</code> = T + 4·rax. This is the lecture's get_pgh_digit pattern (<code>leaq (%rdi,%rdi,4)</code> for 5i, add dig, <code>movl pgh(,%rsi,4)</code>).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write &amp;A[i][j] = A + K(iC + j).</li><li>Build i·C with leaq/shift/sub, then add j.</li><li><code>mov A(,%reg,K)</code> with the element's suffix.</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Finding dimensions from assembly</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Lecture sum_element style) Find M and N. Here i is in %rdi and j in %rsi.
+<div class="two"><pre>long A[M][N];
+long B[N][M];
+long sum_element(long i,
+                 long j) {
+  return A[i][j] + B[j][i];
+}</pre><pre>leaq (,%rdi,8), %rdx
+subq %rdi, %rdx
+addq %rsi, %rdx
+leaq (%rsi,%rsi,4), %rax
+addq %rax, %rdi
+movq B(,%rdi,8), %rax
+addq A(,%rdx,8), %rax
+ret</pre></div></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>rdx = 8i → 7i → 7i + j        used with A: index = i·N + j   ⇒ N = 7
+rax = 5j ; rdi = 5j + i       used with B: index = j·M + i   ⇒ M = 5
+Answer: M = 5, N = 7</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The compiler bakes the column count into the index calculation (M4: index = row·C + col). So annotate until each array's index expression appears, then read off the <b>multiplier of the row index</b>. That multiplier is that array's <b>column count</b>, its second dimension. Be careful which constant is which: A is [M][N], so its column count is N; B is [N][M], so its column count is M. Check the scale too (8 → long elements).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Annotate until you see "c·i + j" for each array.</li><li>Match it to that array's declaration: c = its 2nd dimension.</li><li>Write each constant with the line that proves it.</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Multi-level arrays</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>int *univ[3];</code> (each element points to an int array). (a) Write the assembly for <code>int get(size_t i, size_t j) { return univ[i][j]; }</code>. (b) How many memory reads does it take, compared with <code>int pgh[4][5]</code>?</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) get:  salq $2, %rsi               # 4j
+          addq univ(,%rdi,8), %rsi    # p = univ[i] + 4j     ← read 1: the row pointer
+          movl (%rsi), %eax           # *p                   ← read 2: the element
+          ret
+(b) univ[i][j] = M[ M[univ + 8i] + 4j ] → 2 memory reads.
+    pgh[i][j] = M[ pgh + 20i + 4j ]    → 1 memory read.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A <b>multi-level</b> array is an array of <b>pointers</b>, each pointing to a separate row array. <code>univ[i][j]</code> looks the same in C as a nested array access, but the machine work is different:</p>
+<ol><li>Read the pointer <code>univ[i]</code> (8 bytes at univ + 8i).</li><li>Add 4j to it and read the int there.</li></ol>
+<p>So it takes <b>two</b> memory accesses, compared with one for a nested array, where the row position is computed arithmetically. Because the rows are separate arrays, they can be anywhere in memory and can have <b>different lengths</b>. A nested array is one block with a fixed row length.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Recognise an array of pointers (T *A[]).</li><li>Formula: M[ M[A + 8i] + K·j ].</li><li>Assembly: read the pointer, add K·j, read the element.</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Fixed vs. variable dimensions</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Explain why <code>fix_ele</code> (N = 16, a constant) uses a shift, but <code>var_ele</code> (n a parameter) uses imulq, to compute the address of a[i][j] for int elements.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>fix_ele: row size = C·K = 16·4 = 64 is known at compile time → salq $6 (×64)
+var_ele: row size = n·4 depends on the parameter n → unknown at compile time
+         → must multiply at run time: imulq %rdx,%rdi (n·i), then leaq/movl with scale 4</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The address formula needs the row length C. If C is a <b>compile-time constant</b> (#define N 16), the compiler turns ×C·K into shifts and leaq tricks. If the array's dimension is a <b>run-time value</b> (C99 variable-length arrays <code>int a[n][n]</code>, or manual indexing <code>a[i*n + j]</code> with <code>#define IDX(n,i,j)</code>), the compiler must emit a real <code>imulq</code>. That is the difference between the lecture's fix_ele and var_ele.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Is the row length a constant? → shifts/leaq. A variable? → imulq.</li><li>Write the address formula both ways.</li></ol></div></div>
+
+<div class="ptype" data-m="M9"><h3><span class="mtag">M9</span>Array loops</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write -Og assembly for <code>long total(int *a, long n) { long s = 0; for (long i = 0; i &lt; n; i++) s += a[i]; return s; }</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>total:                         # a in %rdi, n in %rsi
+  movl   $0, %eax              # s = 0
+  movl   $0, %edx              # i = 0
+  jmp    .L2                   # jump-to-middle
+.L3:
+  movslq (%rdi,%rdx,4), %rcx   # (long) a[i]   (int → long: sign-extend)
+  addq   %rcx, %rax            # s += a[i]
+  addq   $1, %rdx              # i++
+.L2:
+  cmpq   %rsi, %rdx            # i : n
+  jl     .L3                   # while i &lt; n
+  ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>An array loop is just a Unit 4 loop whose body uses the indexed addressing mode. Keep i in a register and access the element as <code>(base,i,K)</code>. Use a jump-to-middle shape for -Og (or a guard + do-while for -O1), with the update <code>addq $1</code> and a cmp with n.</p>
+<p>Watch the element <b>size and sign</b>: adding an int element to a long sum needs <code>movslq</code> to sign-extend (Unit 1 M8). The lecture's zincr is the model: <code>addl $1,(%rdi,%rax,4)</code> with <code>cmpq $4,%rax ; jbe</code> (unsigned, because i is size_t).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the loop's goto form (Unit 4 M5).</li><li>Element = (base, i, K), with the right mov size and sign.</li><li>Comment every line.</li></ol></div></div>
+
 <div class="deck"><b>From the practice deck, also do:</b> Problem 23 (3.36), Problem 24 (3.37). Lecture must-knows: get_digit, zincr, get_pgh_zip, get_pgh_digit, get_univ_digit, fix_ele vs var_ele, and sum_element.</div>
 
 <!--PRACTICE-->

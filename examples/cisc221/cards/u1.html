@@ -1,0 +1,235 @@
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Toolchain commands</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+The command <code>gcc -Og -o app main.c helper.c</code> is run. List, in order, every tool that runs and the files it produces. Then say what <code>objdump -d app</code> does.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Stage        Tool        Input               Output
+1 compile    compiler    main.c, helper.c    main.s, helper.s  (assembly text)
+2 assemble   assembler   main.s, helper.s    main.o, helper.o  (machine code)
+3 link       linker      main.o, helper.o    app               (executable)
+                         + libraries (.a)
+(the .s and .o files are temporary: gcc deletes them because no stop flag was given)
+objdump -d app: the disassembler reads the bytes of app and prints the assembly.
+                It creates no file.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A C program goes through <b>four tools</b> before it can run. <code>gcc</code> is not one tool: it is a <i>driver</i> that runs the others for you.</p>
+<pre>  calc.c ──compiler──▶ calc.s ──assembler──▶ calc.o ──linker──▶ calc
+  (C text)            (assembly text)       (machine code,      (executable)
+                                             addresses missing)   ▲ libraries (.a)</pre>
+<ul>
+<li><b>Compiler</b> (<code>gcc -S</code>): turns C into assembly <i>text</i>. This is where register and instruction choices are made. <code>-Og</code> is the optimisation level, chosen to give readable assembly.</li>
+<li><b>Assembler</b> (<code>as</code>, or <code>gcc -c</code>): turns each assembly line into <b>bytes</b>. In the lecture's <code>sumstore</code> example, the instructions are 1, 3 or 5 bytes each, 14 bytes in total. The object file is "nearly complete": calls to functions in <i>other</i> files still have placeholder addresses.</li>
+<li><b>Linker</b> (<code>ld</code>, or plain <code>gcc</code> with .o inputs): joins all the .o files and the library code (for example <code>printf</code>) and fills in those missing addresses. Some libraries are linked <i>dynamically</i> instead, when the program starts.</li>
+<li><b>Disassembler</b> (<code>objdump -d</code>, or <code>disassemble</code> in gdb): goes backwards, from bytes to an "approximate rendition" of the assembly. It works on .o files and executables.</li>
+</ul>
+<p><b>Reading the flags:</b> gcc starts from whatever stage the input file is at. <code>-S</code> means stop after compiling, <code>-c</code> means stop after assembling, and with neither flag it goes all the way. <code>-o name</code> only chooses the output file name.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Look at the input file type (.c, .s, .o, executable).</li>
+<li>Look for a stop flag (-S, -c, or none).</li>
+<li>Write one row per stage, from the input's stage to the stop point: tool and output file.</li></ol></div></div>
+
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>ISA vs. microarchitecture</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Classify each item as part of the <b>ISA</b> or the <b>microarchitecture</b>: (a) the <code>leaq</code> instruction exists; (b) the processor has a 1 MB L2 cache; (c) there are 16 integer registers; (d) the chip runs at 4.0 GHz.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Item                 Visible to an assembly programmer?   Answer
+(a) leaq exists      yes: you can write it                ISA
+(b) 1 MB L2 cache    no: it only changes speed            microarchitecture
+(c) 16 registers     yes: you name them in code           ISA
+(d) 4.0 GHz clock    no: it only changes speed            microarchitecture</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The <b>ISA</b> (instruction set architecture, or "architecture") is the <b>contract</b> between software and hardware. It is everything you need to know to write correct assembly or machine code: the instructions, the registers, the condition codes, and how memory is addressed. x86-64 is an ISA, and so is ARM.</p>
+<p>The <b>microarchitecture</b> is <b>how one particular chip fulfils that contract</b>: cache sizes, clock frequency, pipelines, the number of cores. An Intel chip and an AMD chip can have very different microarchitectures, yet both run the same x86-64 program, because they share the ISA. An ARM phone has a different ISA, so the program must be recompiled.</p>
+<p>The chef analogy from the lecture: the recipe language is the ISA. Whether the kitchen has a big countertop (cache) or a fast stove (clock) is the microarchitecture. It changes how <i>fast</i> the meal is made, not <i>what</i> the meal is.</p>
+<p>Related fact: x86 is a <b>CISC</b> (complex instruction set computer), with many instructions and formats. ARM is closer to <b>RISC</b> (reduced instruction set).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Ask: "Could I see or use this from assembly code?"</li>
+<li>Yes → ISA. No (it only changes speed or size) → microarchitecture.</li>
+<li>Write the reason next to each answer.</li></ol></div></div>
+
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Register names</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Give the 4-byte, 2-byte and 1-byte names of <code>%rcx</code>, <code>%rdi</code> and <code>%r13</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Register  Group             4 bytes   2 bytes   1 byte
+%rcx      a/b/c/d           %ecx      %cx       %cl
+%rdi      si/di/sp/bp       %edi      %di       %dil
+%r13      r8–r15            %r13d     %r13w     %r13b</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Each of the 16 registers holds 8 bytes. You can also use only its <b>low</b> 4, 2 or 1 bytes, and each smaller piece has its own name. They are not separate registers: they are nested parts of the same one.</p>
+<pre>%rcx │■■■■■■■■│   all 8 bytes
+%ecx │    ■■■■│   low 4 bytes
+%cx  │      ■■│   low 2 bytes
+%cl  │       ■│   lowest byte</pre>
+<p>The names follow three patterns, which come from history: the 16-bit chips had <code>%ax</code> with low byte <code>%al</code>, the 32-bit chips added <b>e</b> for "extended" (<code>%eax</code>), and the 64-bit chips added <b>r</b> (<code>%rax</code>) plus eight new registers, %r8–%r15.</p>
+<table><tr><th>Group</th><th>8</th><th>4</th><th>2</th><th>1</th></tr>
+<tr><td>rax, rbx, rcx, rdx</td><td>%rbx</td><td>%ebx</td><td>%bx</td><td>%bl (x→l)</td></tr>
+<tr><td>rsi, rdi, rsp, rbp</td><td>%rsi</td><td>%esi</td><td>%si</td><td>%sil (add l)</td></tr>
+<tr><td>r8 … r15</td><td>%r9</td><td>%r9d</td><td>%r9w</td><td>%r9b</td></tr></table>
+<p>The names <i>matter</i> because the name you use decides how many bytes an instruction reads or writes (see M4 and M6). A made-up name like <code>%sl</code> is an assembler error (Practice Problem 3.3).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the register's group next to it.</li>
+<li>Apply that group's pattern for 4, 2 and 1 bytes.</li>
+<li>Double-check any 1-byte name: <code>%sil</code>, <code>%dil</code>, <code>%spl</code> and <code>%bpl</code> all end in <b>l</b>.</li></ol></div></div>
+
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Writing part of a register</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>%rax = 0x0123456789ABCDEF</code>. The lines run in order. Give %rax after each: (a) <code>movb $0x11,%al</code> (b) <code>movw $0x2233,%ax</code> (c) <code>movl $0x44,%eax</code> (d) <code>movb $0x80,%al</code>; then (e) <code>movsbq %al,%rdx</code>, giving %rdx.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) movb $0x11,%al      0x0123456789ABCD11   only byte 0 changes
+(b) movw $0x2233,%ax    0x0123456789AB2233   only bytes 0–1 change
+(c) movl $0x44,%eax     0x0000000000000044   4-byte write → upper 4 bytes become 0
+(d) movb $0x80,%al      0x0000000000000080
+(e) movsbq %al,%rdx     %rdx = 0xFFFFFFFFFFFFFF80
+                        0x80 = 1000 0000₂ → sign bit 1 → fill with 1s (−128 stays −128)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p><b>The rule:</b> a 1-byte or 2-byte write changes <i>only</i> those bytes. A <b>4-byte write also sets the upper 4 bytes to zero</b>. x86-64 was designed this way so that 32-bit code works cleanly. It is also why the compiler writes <code>movl $0,%eax</code> to clear all of %rax, and why no <code>movzlq</code> instruction exists: <code>movl</code> already zero-extends.</p>
+<p><b>Extending</b> means copying a small value into a bigger space <i>without changing its meaning</i>:</p>
+<ul><li><b>Zero-extension</b> (<code>movz__</code>) fills the new bytes with 0. That keeps an <b>unsigned</b> value the same: 0x80 → 0x0000000000000080 = 128.</li>
+<li><b>Sign-extension</b> (<code>movs__</code>) fills the new bytes with copies of the <b>sign bit</b> (the top bit). That keeps a <b>signed</b> two's-complement value the same: 0x80 = −128 → 0xFFFFFFFFFFFFFF80 = −128.</li></ul>
+<p>The two letters after movz/movs are the <b>from</b> and <b>to</b> sizes: <code>movsbq</code> = sign-extend a <b>b</b>yte to a <b>q</b>uad.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write all 16 hex digits of the starting value.</li>
+<li>For each line: 1 or 2 bytes → replace only those digits. 4 bytes → replace the low 8 digits and zero the high 8.</li>
+<li>movs: look at the top bit of the source (hex digit 8–F means 1 → fill with F). movz: fill with 0.</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Operand values</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Memory: M[0x300] = 0xA, M[0x308] = 0xB, M[0x310] = 0xC. Registers: %rax = 0x300, %rbx = 0x8, %rcx = 0x2. Give the value of each operand: <code>%rbx</code>, <code>$0x308</code>, <code>0x310</code>, <code>(%rax)</code>, <code>8(%rax)</code>, <code>(%rax,%rbx)</code>, <code>8(%rax,%rcx,4)</code>, <code>752(,%rbx,2)</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Operand           Kind        Address work                          Value
+%rbx              register    —                                     0x8
+$0x308            immediate   — (no memory read)                    0x308
+0x310             memory      absolute address 0x310                0xC
+(%rax)            memory      0x300                                 0xA
+8(%rax)           memory      0x300 + 8 = 0x308                     0xB
+(%rax,%rbx)       memory      0x300 + 0x8 = 0x308                   0xB
+8(%rax,%rcx,4)    memory      8 + 0x300 + 4·2 = 0x310               0xC
+752(,%rbx,2)      memory      752 = 0x2F0; 0x2F0 + 2·8 = 0x300      0xA</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>An operand is where an instruction gets (or puts) a value. There are exactly <b>three kinds</b>:</p>
+<ul><li><b>Immediate</b> <code>$c</code>: the constant itself, built into the instruction. Nothing is looked up.</li>
+<li><b>Register</b> <code>%r</code>: the value stored in that register.</li>
+<li><b>Memory</b>: the value at an <b>address</b> in memory. A bare number like <code>0x310</code> is an absolute address. Anything with parentheses computes an address.</li></ul>
+<p>The general memory form is <b>D(Rb,Ri,S)</b>, which means address = <b>D + Rb + S·Ri</b>:</p>
+<ul><li><b>D</b>: a constant displacement. <b>Rb</b>: the base register (often a pointer).</li>
+<li><b>Ri</b>: the index register (any register except %rsp). <b>S</b>: the scale, only 1, 2, 4 or 8.</li></ul>
+<p>Why this shape? It is exactly what C needs. <code>*p</code> → <code>(%rdi)</code>. A struct field <code>p-&gt;f</code> → <code>8(%rdi)</code>. An array element <code>a[i]</code> of 4-byte ints → <code>(%rdi,%rsi,4)</code>, i.e. base + i × element size. The scales 1, 2, 4 and 8 are the sizes of char, short, int and long/pointer.</p>
+<p><b>Two traps:</b> a displacement without 0x is <b>decimal</b> (752 = 0x2F0). And <code>$0x308</code> (the number) is not the same as <code>0x308</code> (the memory at that address).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Classify: $ → immediate; %reg → register; otherwise memory.</li>
+<li>Memory: convert any decimal displacement to hex, then compute D + Rb + S·Ri.</li>
+<li>Look the address up in the memory table and write the value.</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Instruction suffix</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Fill in the suffix: <code>mov__ %ecx,(%rdx)</code> · <code>mov__ (%rsp),%r9</code> · <code>mov__ $5,%sil</code> · <code>mov__ %bp,8(%rax)</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>movl %ecx,(%rdx)      %ecx is 4 bytes → l
+movq (%rsp),%r9       %r9 is 8 bytes → q          (%rsp in ( ) is just an address)
+movb $5,%sil          %sil is 1 byte → b
+movw %bp,8(%rax)      %bp is 2 bytes → w</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Every data instruction needs to know <b>how many bytes</b> to move. AT&amp;T syntax puts that in a one-letter suffix:</p>
+<table><tr><th>Suffix</th><th>Name</th><th>Bytes</th><th>C type</th></tr>
+<tr><td>b</td><td>byte</td><td>1</td><td>char</td></tr><tr><td>w</td><td>word</td><td>2</td><td>short</td></tr>
+<tr><td>l</td><td>long word</td><td>4</td><td>int</td></tr><tr><td>q</td><td>quad word</td><td>8</td><td>long, pointer</td></tr></table>
+<p>("Word" means 2 bytes because the original 8086 was a 16-bit machine.)</p>
+<p>The size comes from the <b>data register</b>, because a register name tells you its size (M3). A memory operand like <code>(%rdx)</code> has no size of its own, and the register inside the parentheses only supplies an address, which is always 64-bit. If an instruction moves an immediate to memory (<code>mov $5,(%rax)</code>), nothing implies a size, so you must state the suffix explicitly.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Cover up anything inside parentheses.</li>
+<li>Find the remaining register and its size.</li>
+<li>Write the suffix and the reason ("%ecx is 4 bytes → l").</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>What's wrong with this instruction?</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Each line causes an assembler error. Explain why: <code>movq (%rdi),8(%rdi)</code> · <code>movl $7,%rax</code> · <code>movw $0x10,(%eax)</code> · <code>movq %rax,(%rdi,%rsp,2)</code> · <code>movb %dl,$1</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>movq (%rdi),8(%rdi)        both operands are memory (memory-to-memory is not allowed)
+movl $7,%rax               suffix l (4 bytes) does not match %rax (8 bytes)
+movw $0x10,(%eax)          %eax is 32-bit: cannot be an address register (need 64-bit)
+movq %rax,(%rdi,%rsp,2)    %rsp cannot be the index register
+movb %dl,$1                an immediate cannot be a destination</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Each rule exists because of how instructions are <b>encoded in bytes</b>:</p>
+<ul><li><b>At most one memory operand.</b> The encoding has room to describe only one memory address, so copying memory to memory takes two instructions, going through a register.</li>
+<li><b>An immediate is not a location.</b> It is a constant inside the instruction, so you cannot store into it.</li>
+<li><b>Sizes must agree.</b> The suffix and the register name both state a size, and they must match. A register name that doesn't exist (<code>%sl</code>) is also an error.</li>
+<li><b>Addresses are 64-bit</b> on x86-64, so a register used to form an address must be a 64-bit one (%rax, not %eax).</li>
+<li><b>%rsp cannot be the index</b>, because the encoding reserves that slot to mean "no index".</li>
+<li><b>The scale is a 2-bit field</b>, so only 1, 2, 4 and 8 can be encoded.</li></ul></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Go through this checklist in order: two memory operands? immediate destination? suffix ≠ register size? register exists? 32-bit address register? %rsp as index? scale ∉ {1,2,4,8}?</li>
+<li>Write the first rule that is broken, in one short sentence.</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Cast moves <code>*dp = (dest_t)*sp</code></h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give the two instructions for <code>*dp = (dest_t)*sp;</code> using %rax (or part of it): (a) short → int (b) unsigned char → int (c) long → char.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) short → int           movswl (%rdi),%eax ; movl %eax,(%rsi)
+                          wider + signed source → sign-extend
+(b) unsigned char → int   movzbl (%rdi),%eax ; movl %eax,(%rsi)
+                          wider + unsigned source → zero-extend
+(c) long → char           movq (%rdi),%rax   ; movb %al,(%rsi)
+                          narrower → load all, store the low byte</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A C cast between integer types does one of three things, decided by the sizes:</p>
+<ul><li><b>Wider destination</b>: the value must <i>stay the same number</i>. For a <b>signed</b> source that means sign-extension (M4), so −1 stays −1. For an <b>unsigned</b> source it means zero-extension, so 255 stays 255. The <b>source</b> type decides, never the destination: <code>char → unsigned</code> still uses <code>movsbl</code>.</li>
+<li><b>Narrower destination</b>: C truncates, keeping only the low bytes. Load at the source's size, then store the small register part (<code>%al</code>, <code>%ax</code>, <code>%eax</code>).</li>
+<li><b>Same size</b>: just copy with plain mov. The bits don't change; only how C interprets them does.</li></ul>
+<p>The instruction name tells you everything: <code>movs</code>/<code>movz</code> + <b>from-size</b> + <b>to-size</b> (<code>movzbl</code> = zero-extend byte to long). <code>unsigned → long</code> is just <code>movl</code> then <code>movq</code>, because a 4-byte write already zeroes the top half.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Compare the sizes: wider, narrower or the same?</li>
+<li>Wider: s or z according to the source's signedness, then the from/to letters. Store at the destination size.</li>
+<li>Narrower: load at the source size, store the destination-sized part of the register.</li></ol></div></div>
+
+<div class="ptype" data-m="M9"><h3><span class="mtag">M9</span>Move traces and assembly → C</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>void rotate(long *a, long *b)</code>, with a in %rdi and b in %rsi, compiles to the code below. Write the C.
+<pre>movq (%rdi), %rax
+movq (%rsi), %rdx
+movq %rdx, (%rdi)
+addq %rax, %rdx
+movq %rdx, (%rsi)
+ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Map: a → %rdi, b → %rsi
+Line                   Meaning
+movq (%rdi),%rax       x = *a
+movq (%rsi),%rdx       y = *b
+movq %rdx,(%rdi)       *a = y
+addq %rax,%rdx         y = y + x
+movq %rdx,(%rsi)       *b = y          (= old *a + old *b)
+
+void rotate(long *a, long *b) { long x = *a; long y = *b; *a = y; *b = x + y; }</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Assembly has no variables, only registers and memory. To turn it back into C, give each register a <b>meaning</b>:</p>
+<ul><li>A register that holds a <b>parameter</b> is that parameter (%rdi = 1st, %rsi = 2nd, %rdx = 3rd…).</li>
+<li><b>Parentheses mean dereference</b>: <code>(%rdi)</code> is <code>*a</code>, and <code>8(%rdi)</code> is <code>a[1]</code> for longs (8 bytes = 1 element).</li>
+<li>A <b>load</b> (memory → register) creates a local variable. A <b>store</b> (register → memory) is an assignment through a pointer.</li></ul>
+<p>Compiled code usually <b>loads everything first</b> and then stores, because the compiler must read the old values before overwriting them. A state table (one column per register and memory cell, one row per instruction) catches the cases where a value has changed. The swap example from L09 is the classic version of this.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the register map.</li>
+<li>Write a Meaning for every line, as C.</li>
+<li>Collect the Meanings into C, and check the order of the stores.</li></ol></div></div>
+
+<div class="ptype" data-m="M10"><h3><span class="mtag">M10</span>C → assembly for pointer code</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write the x86-64 assembly for <code>void inc2(long *p) { p[1] = p[0] + 2; }</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>inc2:                       # p in %rdi
+  movq (%rdi), %rax         # rax = p[0]
+  addq $2, %rax             # rax = p[0] + 2
+  movq %rax, 8(%rdi)        # p[1] = rax   (element 1 is at +8 bytes)
+  ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Writing assembly is M9 in reverse. Every C pointer expression becomes an addressing mode:</p>
+<table><tr><th>C</th><th>Assembly (long *p in %rdi)</th></tr>
+<tr><td><code>*p</code> or <code>p[0]</code></td><td><code>(%rdi)</code></td></tr>
+<tr><td><code>p[k]</code> (constant k)</td><td><code>8k(%rdi)</code>, e.g. p[2] → <code>16(%rdi)</code> (4k for int)</td></tr>
+<tr><td><code>*p = 7</code></td><td><code>movq $7, (%rdi)</code></td></tr>
+<tr><td><code>*q = *p</code></td><td>two moves through a register (no memory-to-memory)</td></tr></table>
+<p>Use a caller-saved scratch register (%rax, %rcx, %rdx…) for temporaries. If the function returns a value, leave it in <code>%rax</code>, and always finish with <code>ret</code>. Arithmetic can also work directly on memory (<code>addq $2,(%rdi)</code>), which is often what the compiler does for <code>*p += 2</code>.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the register map, and convert each p[k] to a byte offset.</li>
+<li>Load, compute, then store: one line per C operation, each with a comment.</li>
+<li>Return the value in %rax (if any), then write <code>ret</code>.</li></ol></div></div>

@@ -6,14 +6,20 @@
 - Write new instances: change the numbers, the code, the constants and the structure, but keep the format and difficulty. Add harder variants that combine two ideas.
 - Paraphrase textbook statements when summarising official problems (master reference, section D). Never reproduce long copyrighted text.
 
+## Problem-type cards: show, answer, explain
+- The **ask** is not a description of the problem type. It IS a problem, formatted exactly as the instructor formats them (the same wording style, table shapes, code layout, blanks), so the student recognises it instantly on the test.
+- The **write** is the answer a full-marks student would put on paper: setup line, one line per step with the reason, a clearly marked final answer, and a numeric check where possible.
+- The **explain** must teach, not list. Cover what the concept is; the mechanism that makes it work (e.g. why cmp sets both kinds of flags, why alignment needs padding); each rule with its reason; a small diagram (pre block) when spatial (stack, memory layout, register nesting); the classic traps; and where it appears in the lectures or official problems. If the student could ask "but why?" after reading it, it isn't finished.
+- The **steps** checklist is short (2–4 items) and is what the student runs through on the test.
+
 ## Teach before you test (coverage rule)
-- Plan each unit as a **problem-type list first**: write the methods M1…Mn (one per problem type), then write the problems, tagging each with `data-uses`.
-- Every problem type needs a method step, including the easy-to-forget ones:
+- Plan each unit as a **problem-type list first**: one card M1…Mn per problem type, then write the problems, tagging each with `data-uses`.
+- Every problem type needs a card, including the easy-to-forget ones:
   - the reverse direction ("now write the assembly/code", not just "read it");
   - definition and "why" questions (toolchain, ISA vs. microarchitecture, why an idiom is used);
   - edge cases and tricks (do-while runs once, a dropped loop guard, division bias, scale limits, sign extension);
   - evaluation and tracing questions ("give f(7)", "stack depth in bytes").
-- The unit's "Learn it" notes must contain the facts each method relies on.
+- Each card's explanation must contain every fact its practice problems rely on.
 - After writing a unit, do an **audit pass**: for each problem, ask "could a student who has read only this unit's Learn-it and methods solve this?" If not, add the missing teaching, or move the problem.
 
 ## Every answer must be verified

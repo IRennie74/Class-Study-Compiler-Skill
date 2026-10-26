@@ -1,0 +1,168 @@
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>push / pop</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>%rsp = 0x500</code>, <code>%rax = 7</code>, <code>%rbx = 9</code>. Trace <code>pushq %rax ; pushq %rbx ; popq %rcx</code>. Give %rsp, %rcx and the stack memory after each step.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Instruction   %rsp    Memory change          %rcx
+(start)       0x500   —                      ?
+pushq %rax    0x4F8   M[0x4F8] = 7           ?
+pushq %rbx    0x4F0   M[0x4F0] = 9           ?
+popq %rcx     0x4F8   (M[0x4F0] still holds 9) 9</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The <b>stack</b> is a region of memory used last-in, first-out. On x86-64 it <b>grows toward lower addresses</b>, and <code>%rsp</code> always holds the address of the current <b>top</b> element (the lowest address in use).</p>
+<pre>  higher addresses   ┌─────┐
+                     │  7  │ 0x4F8
+            %rsp ──▶ │  9  │ 0x4F0   ← top after the two pushes
+  lower addresses    └─────┘   (pushes go DOWN)</pre>
+<ul><li><code>pushq S</code>: <b>first</b> %rsp −= 8, <b>then</b> store S at M[%rsp].</li>
+<li><code>popq D</code>: <b>first</b> D = M[%rsp], <b>then</b> %rsp += 8. D must be a register. The memory is not erased; it just becomes "free".</li></ul>
+<p>Every push/pop moves %rsp by exactly 8 (one quad word).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Make columns: %rsp, memory change, registers.</li><li>push: subtract 8, then write. pop: read, then add 8.</li></ol></div></div>
+
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>call / ret traces</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Lecture multstore/mult2 style) <code>400544: callq 400550 &lt;mult2&gt;</code> is followed by <code>400549: mov %rax,(%rbx)</code>. Before the call, %rsp = 0x120 and %rip = 0x400544. Give %rsp, %rip and the top of the stack right after the call, and right after mult2's <code>retq</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Moment               %rsp     %rip       M[%rsp]     Why
+before call          0x120    0x400544   —
+after callq          0x118    0x400550   0x400549    push return addr (next instr), jump
+after mult2's retq   0x120    0x400549   —           pop return addr into %rip</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Calling a function means jumping to its code <b>and remembering where to come back to</b>. The stack stores that "come back here" address:</p>
+<ul><li><code>call Label</code>: push the <b>return address</b>, the address of the instruction right <i>after</i> the call (the call's address + its length; from disassembly, simply the next line's address). Then set %rip = Label.</li>
+<li><code>ret</code>: pop the top of the stack into %rip, which jumps back to the return address.</li></ul>
+<p>Because each call pushes and each ret pops, calls nest naturally: if P calls Q and Q calls R, R returns to Q before Q returns to P (last in, first out). That is why the stack is the right data structure for procedures.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Make a table: PC, instruction, registers, %rsp, M[%rsp].</li><li>call: %rsp −= 8, M[%rsp] = next address, %rip = target.</li><li>ret: %rip = M[%rsp], %rsp += 8. Say whether your values are "before" or "after" each instruction.</li></ol></div></div>
+
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Where arguments are</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+For <code>long f(int a, long *b, char c, short d, long e, int f, long g, int h, double x)</code>, where is each argument when f starts executing?</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>#   arg        type     location
+1   a          int      %edi
+2   b          long *   %rsi
+3   c          char     %dl
+4   d          short    %cx
+5   e          long     %r8
+6   f          int      %r9d
+7   g          long     8(%rsp)     ((%rsp) = return address)
+8   h          int      16(%rsp)
+FP  x          double   %xmm0       (FP args are counted separately)
+return value: %rax</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Caller and callee must agree where data goes. The Linux x86-64 <b>calling convention</b> says:</p>
+<ul><li>The first <b>six</b> integer or pointer arguments go in <code>%rdi, %rsi, %rdx, %rcx, %r8, %r9</code>, in that order. Use the part of the register that matches the type's size (int → %edi, char → %dl …).</li>
+<li>Arguments <b>7 and later</b> go on the stack. The caller puts them there before <code>call</code>, so when the callee starts, the return address is at (%rsp), arg 7 at 8(%rsp), arg 8 at 16(%rsp) …</li>
+<li>Floating-point arguments use <code>%xmm0, %xmm1, …</code> and are counted separately from the integer ones.</li>
+<li>The return value goes in <code>%rax</code> (or %xmm0 for float/double).</li></ul>
+<p>Mnemonic for the order: <b>D</b>iane's <b>S</b>ilk <b>D</b>ress <b>C</b>osts <b>8</b> <b>9</b> (rdi, rsi, rdx, rcx, r8, r9).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Number the integer/pointer arguments 1, 2, 3 … and the FP arguments separately.</li><li>Integer 1–6 → registers (size-matched); 7+ → 8(%rsp), 16(%rsp) …</li><li>FP → %xmm0, %xmm1 …; the return value goes in %rax / %xmm0.</li></ol></div></div>
+
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Frames and locals</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Lecture call_incr style) Draw the stack frame after the setup instructions, and explain why v1 is on the stack.
+<pre>long call_incr() { long v1 = 15213; long v2 = incr(&amp;v1, 3000); return v1+v2; }
+call_incr:  subq $16,%rsp ; movq $15213,8(%rsp) ; movl $3000,%esi
+            leaq 8(%rsp),%rdi ; call incr ; addq 8(%rsp),%rax ; addq $16,%rsp ; ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>  higher  │ return address │  ← 16(%rsp)   (pushed by whoever called call_incr)
+          │ v1 = 15213     │  ←  8(%rsp)
+  %rsp ──▶│ (unused)       │  ←  0(%rsp)
+v1 is on the stack because its address is taken (&amp;v1 is passed to incr).
+A register has no address, so v1 must live in memory.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Each running function gets its own region of the stack, its <b>stack frame</b>. From the top of the caller's part down to %rsp it holds: the return address (pushed by call), any saved registers, local variables that can't live in registers, and an "argument build" area for calls with more than six arguments.</p>
+<p>A function makes room with <code>subq $N,%rsp</code> and gives it back with <code>addq $N,%rsp</code> just before <code>ret</code>. Locals are then reached at fixed offsets from %rsp, like <code>8(%rsp)</code>.</p>
+<p>A local variable lives in the frame (not in a register) when: <b>its address is taken</b> (&amp;v1), it is an <b>array or struct</b>, or there are not enough registers. Separate frames are what make recursion work: every call gets private copies of its locals.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Draw a column of 8-byte boxes, return address at the top.</li><li>Place each <code>k(%rsp)</code> local, and label %rsp.</li><li>Explain why each local is on the stack (address taken, array, too many).</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Caller- vs. callee-saved</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+True or false, with a reason: (a) after a call, %rbx still holds what it held before; (b) after a call, %rdx still holds what it held before; (c) a function that uses %r12 must save and restore it.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) True:  %rbx is callee-saved; any callee that uses it must restore it.
+(b) False: %rdx is caller-saved (3rd argument register); the callee may overwrite it.
+(c) True:  %r12 is callee-saved, so it is pushed on entry and popped before ret.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>There is only one set of registers, shared by every function. When <code>yoo</code> calls <code>who</code>, both may want %rdx, and who could destroy a value yoo still needs. The convention splits the registers into two groups so that each side knows its job:</p>
+<table><tr><th>Group</th><th>Registers</th><th>Rule</th></tr>
+<tr><td><b>Caller-saved</b></td><td>%rax, %rdi, %rsi, %rdx, %rcx, %r8, %r9, %r10, %r11 (+ all %xmm)</td><td>any call may overwrite them; if the caller needs a value afterwards, the caller must keep it elsewhere</td></tr>
+<tr><td><b>Callee-saved</b></td><td>%rbx, %rbp, %r12, %r13, %r14, %r15 (+ %rsp)</td><td>a function that uses them must <b>push</b> them first and <b>pop</b> them before returning, so they look untouched to its caller</td></tr></table>
+<p>The lecture's main/fun1 story: main needs x and y after calling fun1, but they were passed in %rdi/%rsi, which fun1 will reuse. So main keeps copies in callee-saved registers (%rbx, %r12).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Name the group the register belongs to.</li><li>Callee-saved → survives calls, and must be pushed/popped by anyone who uses it.</li><li>Caller-saved → may be destroyed by any call.</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Writing a function that makes calls</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write the assembly for <code>long g(long x) { long a = h(x); return a + x; }</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>g:                       # x in %rdi
+  pushq %rbx             # save the caller's %rbx (we are about to use it)
+  movq  %rdi, %rbx       # keep x in callee-saved %rbx: it is needed AFTER the call
+  call  h                # x is already in %rdi as h's argument; %rax = a
+  addq  %rbx, %rax       # a + x
+  popq  %rbx             # restore the caller's %rbx
+  ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The question to ask about every value is: <b>"Do I still need it after a call?"</b></p>
+<ul><li>If <b>no</b>, leave it anywhere (argument registers, %rax …).</li>
+<li>If <b>yes</b>, it must survive the call, so put it in a <b>callee-saved register</b> (%rbx, %rbp, %r12–%r15) or on the stack. Because <i>you</i> are now using a callee-saved register, you must push it at the start and pop it before ret, so your own caller isn't disturbed.</li></ul>
+<p>Order: <b>prologue</b> (push the callee-saved registers you'll use) → move the values that must survive into them → set arguments → <code>call</code> → use %rax → <b>epilogue</b> (pop in <b>reverse</b> order, since the stack is LIFO) → ret. This is exactly the lecture's call_incr2 and the textbook's P/Q example.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>List the values needed after each call, and give each a callee-saved register.</li><li>Push those registers; copy the values in; set args; call.</li><li>Combine the results in %rax; pop in reverse order; ret.</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Recursion → C</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.35 style) Fill in the C for this function, with x in %rdi.
+<div class="two"><pre>long rf(long x) {
+  if (______) return ______;
+  long nx = ______;
+  long rv = rf(nx);
+  return ______;
+}</pre><pre>rf:  movl  $0, %eax
+     testq %rdi, %rdi
+     jle   .L1
+     pushq %rbx
+     movq  %rdi, %rbx
+     subq  $3, %rdi
+     call  rf
+     addq  %rbx, %rax
+     popq  %rbx
+.L1: ret</pre></div></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) base case:   testq ; jle .L1 with rax = 0   → if (x &lt;= 0) return 0;
+(b) saved value: rbx = x                        → x is needed after the call
+(c) argument:    rdi = x − 3                    → nx = x - 3;
+(d) combine:     rax = rv + x                   → return x + rv;
+long rf(long x) { if (x &lt;= 0) return 0; long nx = x - 3;
+                  long rv = rf(nx); return x + rv; }
+Check: rf(7) = 7 + rf(4) = 7 + 4 + rf(1) = 7 + 4 + 1 + rf(−2) = 12</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A recursive function in assembly is just a function that calls itself. The normal rules (M3–M6) make it work, with no special mechanism. Every recursive function has the same four parts, and each one leaves a fingerprint in the assembly:</p>
+<ul><li><b>Base case</b>: a test near the top that jumps straight to <code>ret</code>. %rax at that point is the base value.</li>
+<li><b>Saved value</b>: whatever goes into a callee-saved register (%rbx) <i>before</i> the call is needed <i>after</i> it. That is why it is there.</li>
+<li><b>Recursive argument</b>: how %rdi is changed just before <code>call</code>.</li>
+<li><b>Combine</b>: what is done to %rax (the recursive result) after the call.</li></ul>
+<p>Each level has its own frame, so each level's saved %rbx is different (the push and pop pair keeps them separate).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write the four answers (a) to (d) with the line that shows each.</li><li>Assemble the C.</li><li>Check by evaluating a small input.</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Recursion tables and stack depth</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+For rf from M7: (a) give a call table for rf(7); (b) when the innermost call starts, how many bytes lower is %rsp than at the entry of rf(7)?</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) level  x in   rbx saved   returns
+    1      7      7           7 + 5 = 12
+    2      4      4           4 + 1 = 5
+    3      1      1           1 + 0 = 1
+    4      −2     (base: no push)   0
+(b) each recursing level pushes %rbx (8) and a return address (8) = 16 bytes
+    levels 1–3 recurse → 3 × 16 = 48 bytes lower</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A recursion trace has two directions. Going <b>down</b> (the calls), you fill in the incoming argument and the saved register for each level until you hit the base case. Coming back <b>up</b> (the returns), each level combines its saved value with the result from below. Fill the "returns" column bottom to top.</p>
+<p>For stack depth, count what each level adds to the stack before the next call: one 8-byte slot per <code>pushq</code>, one per <code>subq $8</code>, and 8 more for the return address that <code>call</code> pushes. The base-case level, if it doesn't push, adds nothing. The lecture's pcount_r trace with x = 0110 is the model for this.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Table columns: level, argument, saved register, return value.</li><li>Fill downward to the base case, then fill the returns upward.</li><li>Depth = (number of recursing levels) × (8 per push + 8 for the return address).</li></ol></div></div>

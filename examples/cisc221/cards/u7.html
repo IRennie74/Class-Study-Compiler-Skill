@@ -1,0 +1,125 @@
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Struct layout table</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Give the offset of each field, the alignment K and sizeof for <code>struct S { char c; int i; short s; double d; char e; };</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Field  Size  Align  Offset  Padding before
+c      1     1      0       —
+i      4     4      4       3 (1..3)
+s      2     2      8       —
+d      8     8      16      6 (10..15)
+e      1     1      24      —
+end = 25 → K = max(1,4,2,8,1) = 8 → round 25 up to a multiple of 8 → sizeof = 32</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A struct is one block of memory with its fields <b>in the order declared</b>. The compiler never reorders them. Each field is reached at a fixed <b>offset</b> from the struct's start, decided at compile time. Machine code only ever sees "8(%rdi)", never field names.</p>
+<p><b>Alignment:</b> a primitive of K bytes must start at an address that is a multiple of K (short → even, int → multiple of 4, long/double/pointer → multiple of 8). Memory is fetched in aligned 4- or 8-byte chunks, so a value that crosses a chunk boundary would need two fetches (and is worse across virtual-memory pages). To keep every field aligned, the compiler inserts <b>padding</b> (unused bytes) before a field when needed.</p>
+<p><b>End padding:</b> the whole struct has alignment K = its largest field's alignment, and <b>sizeof is rounded up to a multiple of K</b>. That way, in an array of these structs, every element (and every field in it) is still aligned. In the example, the struct ends at 25, and because of d it needs K = 8, so it takes 32 bytes.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Table: field, size, alignment (array → element size), offset, padding.</li><li>Each offset = the next multiple of the field's alignment at or after the current end.</li><li>K = the largest alignment; sizeof = the end rounded up to a multiple of K.</li></ol></div></div>
+
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Minimise struct size</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Reorder the fields of the struct S from M1 to make it as small as possible, and give the new size.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Largest alignment first: double d; int i; short s; char c; char e;
+d@0 (8) · i@8 (4) · s@12 (2) · c@14 · e@15 → end 16
+(already a multiple of 8) → sizeof = 16
+(was 32: saved 16 bytes of padding)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Padding appears when a small field is followed by a field that needs a bigger alignment. If you <b>sort the fields from largest to smallest alignment</b>, every field starts at a position that is already suitably aligned, so the internal padding disappears and only the end padding (to a multiple of K) can remain. The lecture's S4 (char, int, char = 12 bytes) vs. S5 (int, char, char = 8 bytes) shows the same idea.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Sort the fields by alignment, largest first.</li><li>Redo the layout table (M1).</li><li>State the new size and the bytes saved.</li></ol></div></div>
+
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Arrays of structs</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>struct S3 { short i; float v; short j; } a[10];</code> starts at address a. Give sizeof(struct S3) and the address of <code>a[idx].j</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>i@0 (2) · pad 2 · v@4 (4) · j@8 (2) · end 10 → K = 4 → sizeof = 12
+&amp;a[idx].j = a + 12·idx + 8</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>An array of structs is like any array (Unit 6): element idx starts at <b>base + idx · sizeof(struct)</b>, and sizeof already includes the end padding. A field inside it adds that field's offset: <b>&amp;a[idx].f = a + idx·sizeof + offset(f)</b>.</p>
+<p>The lecture's get_j does exactly this: <code>leaq (%rdi,%rdi,2),%rax</code> (3·idx), then <code>movzwl a+8(,%rax,4),%eax</code> = M[a + 8 + 4·3·idx] = M[a + 12·idx + 8].</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Lay out the struct (M1) to get sizeof and the field offset.</li><li>Address = base + idx·sizeof + offset.</li></ol></div></div>
+
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Writing struct access in assembly</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>struct acct { int id; long bal; struct acct *next; };</code> Write the assembly for <code>long nb(struct acct *p) { return p-&gt;next-&gt;bal + p-&gt;id; }</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Layout: id@0 (4) · pad 4 · bal@8 (8) · next@16 (8) · sizeof 24
+nb:  movq   16(%rdi), %rax     # rax = p-&gt;next
+     movq   8(%rax), %rax      # rax = p-&gt;next-&gt;bal
+     movslq (%rdi), %rdx       # rdx = (long) p-&gt;id   (int → long: sign-extend)
+     addq   %rdx, %rax
+     ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>With the layout known (M1), each field access is a memory operand <code>offset(%reg)</code>:</p>
+<ul><li><code>p-&gt;f</code> → <code>off_f(%rdi)</code>, with the mov size matching f's type.</li>
+<li><b>Following a pointer field</b> (<code>p-&gt;next-&gt;bal</code>) takes two steps: load the pointer into a register, then access the field through <i>that</i> register.</li>
+<li>When fields of different sizes are combined, extend them first: int → long uses <code>movslq</code>, and short → int uses <code>movswl</code> (or movzwl if unsigned).</li></ul>
+<p>The lecture's set_val loop is the model: <code>movslq 16(%rdi),%rax</code> (i), <code>movl %esi,(%rdi,%rax,4)</code> (a[i] = val), <code>movq 24(%rdi),%rdi</code> (r = r-&gt;next).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Lay out the struct and note each offset.</li><li>One mov per field read; load pointer fields first.</li><li>Extend narrower fields before combining them; comment every line.</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Assembly → struct</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Recover the struct and the C statement (p is in %rdi; the fields are int, long or pointers):
+<pre>movq   (%rdi), %rax
+movl   12(%rdi), %edx
+movl   %edx, (%rax)
+ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>movq (%rdi),%rax     8-byte field at offset 0, used as an address → a pointer: int *ptr
+movl 12(%rdi),%edx   4-byte field at offset 12 → int (offset 8 is another 4-byte field)
+movl %edx,(%rax)     store that int through ptr
+struct s { int *ptr; int a; int b; };      // ptr@0, a@8, b@12
+void f(struct s *p) { *p-&gt;ptr = p-&gt;b; }</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Run M4 backwards. Every <code>k(%rdi)</code> is a field at offset <b>k</b>. The instruction's size gives the field's size (movq 8, movl 4, movw/movzwl 2, movb 1), and a signed extend (movslq, movswl) shows that the field is signed. A value that is loaded and then used <b>inside parentheses</b> is a pointer. Gaps between offsets are other fields (or padding), which you can fill in using the alignment rules.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>List each offset with its access size.</li><li>Values later used as addresses are pointers.</li><li>Build the struct in offset order, then the C statement.</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Unions</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Give sizeof for <code>union U { char c; int i[2]; double v; };</code> and for a struct with the same fields. Explain the difference.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>union:  all fields start at offset 0; largest member = 8 (i[2] and v) → sizeof = 8
+struct: c@0 · i@4 (pad 3) · v@16 (pad 4 after i) → end 24 → K = 8 → sizeof = 24
+A union's fields share the same bytes (only one is meaningful at a time);
+a struct gives each field its own space.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A <b>union</b> puts every field at <b>offset 0</b>, on top of each other. Its size is the largest member, rounded up to the union's alignment. Use it when you need only one of the fields at a time, to save space.</p>
+<p>Because the fields overlap, writing one field and reading another <b>reinterprets the same bits</b>. The lecture's <code>bit_float_t</code> (float f; unsigned u) shows this: <code>bit2float(u)</code> gives the float whose bits are u, which is <b>not</b> the same as the cast <code>(float)u</code>, which converts the value.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Union: size = the largest member (rounded to its alignment); all offsets 0.</li><li>Struct: use the layout table (M1).</li><li>Explain sharing vs. separate storage.</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Byte order</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+The int <code>0x11223344</code> is stored at address 0x200 on x86-64. List the bytes at 0x200–0x203. What would they be on a big-endian machine?</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Little endian (x86): 0x200: 44   0x201: 33   0x202: 22   0x203: 11
+Big endian:          0x200: 11   0x201: 22   0x202: 33   0x203: 44</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A multi-byte value occupies several consecutive addresses, and machines disagree about which end goes first. <b>Little endian</b> stores the <b>least</b> significant byte at the <b>lowest</b> address: Intel x86, and ARM on Android and iOS. <b>Big endian</b> stores the most significant byte first (SPARC). Some chips (ARM) are <b>bi-endian</b>. This matters when bytes move between machines (files, networks), or when you read a value one byte at a time.</p>
+<p>To list the bytes, split the hex value into pairs from the <b>right</b>: 0x11223344 → 44, 33, 22, 11. Those go at the increasing addresses on a little-endian machine.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Split the value into byte pairs, padding to the full size.</li><li>Little endian: rightmost pair at the lowest address. Big endian: leftmost first.</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Floating-point code</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(a) Where do the arguments of <code>double mix(long n, double x, float y)</code> arrive? (b) Write the assembly for <code>double scale(double *p, double k) { double t = *p * k; *p = t; return t; }</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) n → %rdi (integer #1)   x → %xmm0 (FP #1)   y → %xmm1 (FP #2)   return → %xmm0
+(b) scale:                   # p in %rdi, k in %xmm0
+      movsd (%rdi), %xmm1    # xmm1 = *p
+      mulsd %xmm0, %xmm1     # xmm1 = *p · k  (= t)
+      movsd %xmm1, (%rdi)    # *p = t
+      movapd %xmm1, %xmm0    # return t in %xmm0
+      ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Floating-point values don't use the integer registers. x86-64 uses the SSE/AVX <b>XMM registers</b> %xmm0–%xmm15, 16 bytes each. One can hold a single float or double (<b>scalar</b>), or several packed together for <b>SIMD</b> (4 floats or 2 doubles at once).</p>
+<ul><li>The instruction suffix says what is inside: <b>ss</b> = scalar single (float), <b>sd</b> = scalar double, <b>ps/pd</b> = packed. So <code>addss</code> adds one float, <code>addsd</code> one double, and <code>addps</code> four floats in parallel.</li>
+<li>Calling convention: FP args go in %xmm0, %xmm1 … (counted separately from %rdi …), the result goes in <b>%xmm0</b>, and all XMM registers are <b>caller-saved</b>. Pointers to doubles are still integers, so they come in %rdi.</li>
+<li>Memory ↔ XMM moves use <code>movss</code>/<code>movsd</code>; whole-register copies use <code>movaps</code>/<code>movapd</code>; comparisons use <code>ucomiss/ucomisd</code>; <code>xorpd %xmm0,%xmm0</code> makes 0.0.</li></ul>
+<p>The lecture's dincr is the model.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Assign integer and pointer args to %rdi … and FP args to %xmm0 … separately.</li><li>Use ss for float and sd for double.</li><li>Leave the result in %xmm0.</li></ol></div></div>

@@ -1,0 +1,218 @@
+<div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Flags after cmp</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+<code>%rax = 4</code>, <code>%rbx = 6</code>. After <code>cmpq %rbx,%rax</code>, give ZF, SF, CF and OF, and say whether <code>jl</code>, <code>jb</code>, <code>jg</code> and <code>jne</code> jump.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>cmpq %rbx,%rax computes rax − rbx = 4 − 6
+Signed view:    4 − 6 = −2   → not zero: ZF=0 · negative: SF=1 · in range: OF=0
+Unsigned view:  4 − 6 needs a borrow (4 &lt; 6) → CF=1
+ZF=0  SF=1  CF=1  OF=0
+jl  (SF^OF = 1)       taken     (4 &lt; 6 signed)
+jb  (CF = 1)          taken     (4 &lt; 6 unsigned)
+jg  (~(SF^OF)&amp;~ZF)    not taken
+jne (~ZF)             taken</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The CPU keeps four 1-bit <b>condition codes</b> describing the result of the last arithmetic or logic instruction (but <b>not</b> leaq):</p>
+<table><tr><th>Flag</th><th>Set to 1 when …</th><th>Used for</th></tr>
+<tr><td>ZF zero</td><td>the result is 0</td><td>== and !=</td></tr>
+<tr><td>SF sign</td><td>the result's top bit is 1 (negative as signed)</td><td>signed compares</td></tr>
+<tr><td>OF overflow</td><td>the true signed answer doesn't fit (pos − neg = neg, or neg − pos = pos)</td><td>signed compares</td></tr>
+<tr><td>CF carry</td><td>an unsigned carry/borrow out of the top bit</td><td>unsigned compares</td></tr></table>
+<p><code>cmp b,a</code> does the subtraction <b>a − b</b>, sets the flags, and throws the result away. The CPU doesn't know whether your numbers are signed, so it sets <i>both</i> kinds of flags and the jump instruction picks the right ones. That is why you compute the subtraction in two views.</p>
+<p>Why does "less than" use <b>SF ^ OF</b>? If there was no overflow, a negative result (SF=1) means a &lt; b. If there <i>was</i> an overflow, the sign came out flipped, so XOR-ing with OF corrects it. <code>test b,a</code> works the same way but computes a &amp; b: it sets ZF/SF, and CF/OF are 0.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write "a − b" for cmp b,a (operands reversed!).</li><li>Signed view → ZF, SF, OF. Unsigned view → CF.</li><li>For each jump, write its flag formula, evaluate it, and say taken or not.</li></ol></div></div>
+
+<div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Reading cmp/test + jump/set</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+x is in %rdi. What C condition makes each jump happen? (a) <code>cmpq $5,%rdi ; jge L</code> (b) <code>testq %rdi,%rdi ; je L</code> (c) <code>testq $1,%rdi ; jne L</code> (d) <code>cmpq $5,%rdi ; ja L</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) cmp $5,x → "x ? 5", ge signed        → x &gt;= 5
+(b) test x,x → x &amp; x = x, je (ZF)         → x == 0
+(c) test $1,x → x &amp; 1, jne (not zero)     → x is odd   ((x &amp; 1) != 0)
+(d) cmp $5,x, a = above (unsigned)         → (unsigned) x &gt; 5</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Read <code>cmp b,a ; jX L</code> as <b>"if (a X b) goto L"</b>. The second operand comes first in the C, the opposite of how it is written. The letters say which comparison is meant and how to treat the numbers:</p>
+<table><tr><th>Letters</th><th>Meaning</th><th>Numbers are …</th></tr>
+<tr><td>e / ne</td><td>== / !=</td><td>either</td></tr>
+<tr><td>g ge l le</td><td>&gt; ≥ &lt; ≤</td><td><b>signed</b> (greater/less)</td></tr>
+<tr><td>a ae b be</td><td>&gt; ≥ &lt; ≤</td><td><b>unsigned</b> (above/below)</td></tr>
+<tr><td>s / ns</td><td>negative / non-negative</td><td>signed</td></tr></table>
+<p><b>test idioms:</b> <code>testq %r,%r</code> compares r with 0 (je → r == 0, js → r &lt; 0, jg → r &gt; 0, jle → r ≤ 0). <code>testq $mask,%r</code> checks bits: with mask 1, jne means the low bit is set (odd). <code>setX %al</code> does the same test but stores 0 or 1 instead of jumping.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Rewrite cmp b,a as "a ? b", or test r,r as "r ? 0".</li><li>Use the jump letter to pick the operator and signedness.</li><li>Write the C condition.</li></ol></div></div>
+
+<div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Type and comparison from cmp + set</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.13 style) <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Give data_t and COMP for: (A) <code>cmpw %si,%di ; setl %al</code> (B) <code>cmpb %sil,%dil ; setae %al</code> (C) <code>cmpq %rsi,%rdi ; sete %al</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>     size (suffix)    signedness (letter)     data_t                      COMP
+(A)  w = 2 bytes      l = signed less         short                       &lt;
+(B)  b = 1 byte       ae = unsigned ≥         unsigned char               &gt;=
+(C)  q = 8 bytes      e = either              long, unsigned long, ptr    ==</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A compare instruction keeps two pieces of the C type: the <b>size</b> (in the suffix and register names: b = char, w = short, l = int, q = long or pointer) and, through the condition letter, the <b>signedness</b> (g/l family = signed, a/b family = unsigned). Equality (e/ne) is the same for both, so for those you must list both types, plus pointers for q.</p>
+<p>The comparison is read backwards: <code>cmp %si,%di</code> compares <b>di (a) to si (b)</b>, so setl means a &lt; b.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Suffix → size → candidate types.</li><li>Letter → signed, unsigned or either → narrow the types.</li><li>Write COMP from the letter, reading a ? b.</li></ol></div></div>
+
+<div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>C comparison → assembly</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write the assembly for <code>int ge(unsigned long a, unsigned long b) { return a &gt;= b; }</code>.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>ge:                       # a in %rdi, b in %rsi
+  cmpq   %rsi, %rdi       # compare a : b   (computes a − b)
+  setae  %al              # al = (a ≥ b), unsigned → "above or equal"
+  movzbl %al, %eax        # zero-extend: rax = 0 or 1
+  ret</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A comparison used as a <i>value</i> (not in an if) compiles to three steps: <b>compare</b>, <b>set a byte</b>, <b>widen</b>.</p>
+<ul><li><b>cmp</b>, sized to the type (cmpq for 8 bytes, cmpl for int …). Put b first and a second so the condition reads a ? b.</li>
+<li><b>setX</b> writes 0 or 1 into a single byte register (%al), choosing the letter by operator and signedness (unsigned ≥ → ae, signed ≥ → ge).</li>
+<li><b>movzbl %al,%eax</b>: setX changes only 1 byte, but the return value is all of %rax. movzbl zero-extends the byte to 32 bits, and the 32-bit write also clears the top half (Unit 1 M4).</li></ul>
+<p>This is the lecture's <code>gt</code> example: <code>cmpq %rsi,%rdi ; setg %al ; movzbl %al,%eax</code>.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>cmp b,a, with the right size.</li><li>setX: the operator plus the signed/unsigned letter.</li><li>movzbl %al,%eax, then ret.</li></ol></div></div>
+
+<div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>if / else-if → C</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Fill in the C. Here x is in %rdi and y in %rsi.
+<div class="two"><pre>long f(long x, long y) {
+  long val = ______;
+  if (______)
+    val = ______;
+  else if (______)
+    val = ______;
+  return val;
+}</pre><pre>f:
+  leaq  (%rdi,%rsi), %rax
+  cmpq  %rsi, %rdi
+  jle   .L2
+  movq  %rdi, %rax
+  subq  %rsi, %rax
+  ret
+.L2:
+  testq %rdi, %rdi
+  jns   .L3
+  negq  %rdi
+  movq  %rdi, %rax
+.L3:
+  ret</pre></div></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>Map: x → %rdi, y → %rsi
+leaq (%rdi,%rsi),%rax     rax = x + y                        ⇒ val = x + y
+cmpq %rsi,%rdi ; jle .L2  jump if x ≤ y │ fall-through x &gt; y ⇒ if (x &gt; y)
+  rax = x ; rax = x − y ; ret                                ⇒   val = x - y;
+.L2: testq x,x ; jns .L3  jump if x ≥ 0 │ fall-through x &lt; 0 ⇒ else if (x &lt; 0)
+  rdi = −x ; rax = −x                                        ⇒   val = -x;
+.L3: ret                                                     ⇒ return val;
+
+long val = x + y;
+if (x &gt; y) val = x - y;
+else if (x &lt; 0) val = -x;
+return val;
+Check: (5,1) → 4 ✓   (−3,2) → 3 ✓   (1,2) → 3 ✓ (no branch taken)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Assembly has no if statement, only <b>conditional jumps</b>. The compiler lays out the code as blocks and uses jumps to skip the blocks that shouldn't run:</p>
+<pre>if (Test) Then; else Else;      becomes      if (!Test) goto Else;
+                                             Then; goto Done;
+                                         Else: Else;
+                                         Done:</pre>
+<p>The key consequence: <b>the jump tests the opposite of the C condition</b>, because it jumps <i>past</i> the then-block. So the C condition is the <b>fall-through</b> condition. In the example, <code>jle .L2</code> skips the block when x ≤ y, so the block's C test is <code>x &gt; y</code>.</p>
+<p>Other patterns: a value computed <b>before the first test</b> is the variable's initial value. Each <code>ret</code> (or <code>jmp</code> to the end) ends one path. An else-if shows up as another test at the jump target. A missing else just means the false edge jumps straight to the end. Practice Problem 3.18 (nested ifs) is the full version of this, and it was the centrepiece of the revision video.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Annotate every line; anything before the first test is the initial value.</li>
+<li>For each conditional jump, write both edges: "jump if …" and "fall-through …".</li>
+<li>The fall-through condition is the C if-test. Fill the template, then check one input per path.</li></ol></div></div>
+
+<div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Reading cmov</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Fill in <code>long g(long x, long y) { return ____ ? ____ : ____; }</code>
+<pre>g:  leaq   (%rdi,%rsi), %rax
+    movq   %rdi, %rdx
+    imulq  %rsi, %rdx
+    cmpq   $10, %rdi
+    cmovg  %rdx, %rax
+    ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>rax = x + y           ← default value
+rdx = x · y           ← alternative
+cmpq $10,%rdi ; cmovg → if x &gt; 10, rax = x · y
+return x &gt; 10 ? x * y : x + y;</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>A <b>conditional move</b> <code>cmovX src,dst</code> copies src into dst <i>only if</i> condition X holds. Otherwise dst is unchanged. The compiler uses it for simple ?: and if/else assignments:</p>
+<pre>result = Then_value;  eval = Else_value;  if (!Test) result = eval;</pre>
+<p>Both values are computed <b>first</b>, and the cmov then picks one, with no jump. That matters for speed: modern CPUs work on many instructions at once (a pipeline), and a mispredicted jump forces them to throw that work away. cmov has no jump to mispredict.</p>
+<p>To read it: the value already in the destination is the <b>default</b>, and the cmov condition chooses the <b>other</b> value. So the C is <code>condition ? cmov-source-value : default</code>. Watch out: the compiler may compute the "else" value first and cmov in the "then" value, or the reverse (Practice Problem 3.21).</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Annotate what each register holds before the cmp.</li><li>Find which register the cmov writes: its old value is the default.</li><li>Write: cmov condition ? source value : default.</li></ol></div></div>
+
+<div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>When cmov cannot be used</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+For each, say whether GCC could compile it with a conditional move, and why: (a) <code>v = x &gt; y ? x - y : y - x;</code> (b) <code>v = p ? *p : 0;</code> (c) <code>v = x &gt; 0 ? x *= 7 : x += 3;</code> (d) <code>v = t ? slow1(x) : slow2(x);</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(a) yes: both values are cheap and safe to compute
+(b) no:  cmov computes both sides, so *p would be read even when p == NULL (crash)
+(c) no:  both sides would run, changing x twice (side effects)
+(d) no:  both expensive calls would run (and they may have side effects)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>cmov always evaluates <b>both</b> the then-value and the else-value before it chooses. That is only correct if computing the unused value is <b>harmless</b>. The lecture lists three bad cases:</p>
+<ul><li><b>Risky computations</b>, which could crash (null pointer dereference).</li>
+<li><b>Side effects</b>, which change state (assignments, ++, function calls).</li>
+<li><b>Expensive computations</b>, where doing both costs more than a mispredicted branch.</li></ul>
+<p>In those cases the compiler uses ordinary branches (M5) instead.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Imagine computing both sides every time.</li><li>Could that crash, change state, or be slow? Then no cmov.</li><li>Name the reason (risky, side effect or expensive).</li></ol></div></div>
+
+<div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>&amp;&amp; / || short-circuit</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.16 style) For <code>void cap(long *p, long m) { if (p &amp;&amp; *p &lt; m) *p = m; }</code>: (A) write a goto version that follows the assembly's control flow; (B) explain why there are two conditional branches.</div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>(A) void cap_goto(long *p, long m) {
+      if (p == 0) goto done;        // testq %rdi,%rdi ; je done
+      if (*p &gt;= m) goto done;       // cmpq %rsi,(%rdi) ; jge done
+      *p = m;
+    done:
+      return;
+    }
+(B) &amp;&amp; short-circuits: if p is null, the second test (*p &lt; m) must not run,
+    so each operand gets its own test and branch.</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>In C, <code>A &amp;&amp; B</code> evaluates B <b>only if A is true</b>, and <code>A || B</code> evaluates B only if A is false. This is "short-circuit" evaluation, and code relies on it: <code>p &amp;&amp; *p</code> is safe exactly because *p is never read when p is null.</p>
+<p>So the compiler cannot compute both and combine them. It must test A, jump away if A already decides the answer, and only then test B. For &amp;&amp;, each false operand jumps to "skip". For ||, each true operand jumps to "do it". Each jump tests the <b>negation</b> (M5): "if p == 0 goto done".</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Write one <code>if (!operand) goto done;</code> per operand of &amp;&amp; (for ||: <code>if (operand) goto body;</code>).</li><li>Then the body, then the done label.</li><li>Explain in one line: short-circuit evaluation.</li></ol></div></div>
+
+<div class="ptype" data-m="M9"><h3><span class="mtag">M9</span>C → goto form → branch assembly</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+Write the goto version, then the branching assembly, for <code>long m(long a, long b) { long r; if (a &lt; b) r = b; else r = a - b; return r; }</code></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>long m_goto(long a, long b) {        m:                     # a in %rdi, b in %rsi
+  long r;                              cmpq %rsi, %rdi      # a : b
+  if (a &gt;= b) goto Else;  // !test     jge  .L2             # a ≥ b → Else
+  r = b;                               movq %rsi, %rax      # r = b
+  goto Done;                           ret
+Else:                                .L2:
+  r = a - b;                           movq %rdi, %rax
+Done:                                  subq %rsi, %rax      # r = a − b
+  return r;                            ret
+}</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>The "goto version" is C written the way the machine runs it: no if/else blocks, only <b>conditional jumps</b> and <b>labels</b>. The lecture's template is <code>ntest = !Test; if (ntest) goto Else; Then; goto Done; Else: Else; Done:</code>.</p>
+<p>Writing it is the bridge to assembly. Each <code>if (cond) goto L</code> becomes one <code>cmp</code> + <code>jX L</code>, with the letter for the <i>negated</i> test (a &lt; b becomes jge). Each label becomes an assembly label. <code>goto Done</code> followed by <code>return</code> usually becomes a <code>ret</code> straight away.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Negate the test: if (!Test) goto Else.</li><li>Then-block, goto Done, then Else: block, then Done:.</li><li>Translate: cmp b,a + the negated jump letter; each block ends in ret (or jmp to Done).</li></ol></div></div>
+
+<div class="ptype" data-m="M10"><h3><span class="mtag">M10</span>Divide by 2<sup>k</sup> (bias idiom)</h3>
+<div class="ask"><div class="lbl">How it's asked</div>
+(Practice Problem 3.20 style) <code>#define OP ___</code> · <code>long arith(long x) { return x OP 16; }</code> compiles to the code below. What is OP? Annotate each line.
+<pre>leaq 15(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $4,%rax ; ret</pre></div>
+<div class="write"><div class="lbl">The answer, written exactly like this</div>
+<pre>OP is /   (x / 16)
+leaq 15(%rdi),%rax    temp = x + 15            bias = 2⁴ − 1 for negative x
+testq ; cmovns        if x ≥ 0: temp = x       no bias needed when x is non-negative
+sarq $4,%rax          temp &gt;&gt; 4 = temp / 16    arithmetic shift (x is signed)</pre></div>
+<div class="explain"><div class="lbl">How it works</div>
+<p>Shifting right by k divides by 2<sup>k</sup>, but <code>sar</code> rounds <b>down</b> (toward −∞): −17 &gt;&gt; 4 = −2. C requires division to round <b>toward zero</b>: −17 / 16 = −1. For non-negative x the two agree. For negative x the compiler first adds a <b>bias</b> of 2<sup>k</sup> − 1, which pushes the value up just enough that the shift rounds toward zero: (−17 + 15) &gt;&gt; 4 = −2 &gt;&gt; 4 = −1 ✓.</p>
+<p>The <code>test/cmovns</code> pair chooses: if x is <b>n</b>ot <b>s</b>igned-negative, use plain x, otherwise use x + bias. So whenever you see "add 2<sup>k</sup>−1, cmov on sign, sar k", the operator is <b>division by 2<sup>k</sup></b>.</p></div>
+<div class="steps"><div class="lbl">Every time, do this</div><ol>
+<li>Find the shift amount k, and check that the leaq constant is 2<sup>k</sup> − 1.</li><li>OP = /, by 2<sup>k</sup>.</li><li>Annotate: bias, choose by sign, shift.</li></ol></div></div>

@@ -92,3 +92,19 @@ ol.mlist > li::before { content: attr(data-m); position: absolute; left: 0; top:
 .objectives ol.mlist > li { font-size: 9.8pt; margin: 1.5pt 0; }
 .learn-head { font-family: "Avenir Next","Helvetica Neue",Arial,sans-serif; background: #12355b; color: #fff; padding: 4pt 9pt; margin: 12pt 0 6pt; font-weight: 600; font-size: 11.5pt; break-after: avoid; }
 .uses { font-family: "Avenir Next","Helvetica Neue",Arial,sans-serif; font-size: 7.8pt; color: #2f7d43; border: 1px solid #2f7d43; border-radius: 6pt; padding: 0 5pt; margin-left: 5pt; vertical-align: 1pt; white-space: nowrap; }
+/* ---------- problem-type cards: asked → written answer → how it works → checklist ---------- */
+.ptype { margin: 14pt 0 16pt; padding-top: 2pt; }
+.ptype > h3 { font-size: 13pt; color: var(--accent2); border-bottom: 1.5px solid var(--rule); padding-bottom: 3pt; margin: 0 0 7pt; }
+.ptype > h3 .mtag { display: inline-block; background: #2f7d43; color: #fff; font-size: 9.5pt; border-radius: 3pt; padding: 0 5pt; margin-right: 6pt; vertical-align: 2pt; }
+.ptype .lbl { font-family: "Avenir Next","Helvetica Neue",Arial,sans-serif; font-weight: 700; font-size: 8.6pt; letter-spacing: .4px; text-transform: uppercase; margin-bottom: 3pt; }
+.ptype .ask { border: 1.5px solid var(--accent); border-radius: 4pt; padding: 6pt 10pt; margin: 0 0 8pt; background: #fff; break-inside: avoid; }
+.ptype .ask .lbl { color: var(--accent); }
+.ptype .write { border: 1.5px solid #2f7d43; border-radius: 4pt; padding: 6pt 10pt; margin: 0 0 8pt; background: var(--good-bg); break-inside: avoid; }
+.ptype .write .lbl { color: #2f7d43; }
+.ptype .write pre { background: #fff; border-left-color: #2f7d43; }
+.ptype .explain { padding: 2pt 2pt 2pt 10pt; border-left: 3px solid var(--accent2); margin: 0 0 8pt; }
+.ptype .explain .lbl { color: var(--accent2); }
+.ptype .explain p { margin: 3pt 0 6pt; }
+.ptype .steps { background: #f6f7f9; border-radius: 4pt; padding: 5pt 10pt; break-inside: avoid; }
+.ptype .steps .lbl { color: var(--muted); }
+.ptype .steps ol { margin: 2pt 0 2pt; }

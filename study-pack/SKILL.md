@@ -7,13 +7,13 @@ description: Turn a folder of course materials (lecture slides/PDFs, practice pr
 
 The user studies for tests this way: give them the course materials, and they get **five PDFs** built from those materials. The test is about **solving problems**, so the problem PDFs (the workbook and the mock) matter most. The notes support them.
 
-**The non-negotiable rule: learn it, then practise exactly what you just learned.** Every practice problem must be solvable from what its unit taught *before* it, and every problem shows which methods (M1, M2, …) it uses. A practice problem whose type isn't taught in its unit is a bug. `assemble.py` enforces this and fails the build otherwise.
+**How the user learns (non-negotiable).** For every problem type, show them **(1) the problem exactly as it will be asked**, then **(2) the answer to that example, written exactly the way they should write it**, then **(3) a real explanation of the whole concept** (what it is, why it works, how, with diagrams and traps; never just a list of rules), then **(4) a short checklist**. Only after that come the practice problems. Every practice problem must be solvable from the cards before it, and shows which cards it uses ("Uses M2 · M5"). `assemble.py` enforces both rules and fails the build otherwise. Showing facts without explaining them is a failure mode the user called out explicitly.
 
 | # | PDF | What it is |
 |---|-----|------------|
 | 1 | Mock Test | Original test-style questions, deliberately longer than the real test, with work boxes |
 | 2 | Mock Test ANSWERS | The same test with answers in red and a "Why:" for each |
-| 3 | Unit Problem Workbook | **Centrepiece.** Per unit: "you will be able to" (M1…Mn) → **Learn it** (teaching + worked examples) → labelled methods → show-your-work model → 8–12 practice problems, each tagged with the methods it uses → worked solutions on the next page |
+| 3 | Unit Problem Workbook | **Centrepiece.** Per unit, one card per problem type: **how it's asked** (an example exactly as on the test) → **the answer, written exactly like this** → **how it works** (a full explanation of the concept) → **every time, do this**. Then 8–12 practice problems, each tagged with the cards it uses → worked solutions on the next page |
 | 4 | Complete Master Reference | Everything: lecture notes, the instructor's method, every official problem solved, taxonomy, traps, tables, glossary. Written so another AI could use it as full context |
 | 5 | Concepts Notes | Topic-by-topic teaching notes with worked examples and a cheat sheet |
 
@@ -44,8 +44,12 @@ Run `scripts/extract.sh <materials_dir> <scratchpad>/work`. It produces:
 
 ### 4. Write the content (HTML)
 Copy `templates/` into `<scratchpad>/build/`, then write:
-1. `notes.html` FIRST: one section per topic, each starting with a `<!-- N -->` marker. The workbook reuses these sections as each unit's "Learn it" pages.
-2. `units.json` (with `"learn": [section numbers]` per unit) + `units/u1.html … uN.html` (use `templates/unit.html`: one `ol.mlist` of `li data-m="M1"` methods; every problem `div.q data-uses="M1 M3"`) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this most carefully.** Then do the **audit pass**: for each problem, ask "could a student who has read only this unit's Learn-it and methods solve this?" If not, add the teaching and method, or move the problem.
+1. `notes.html`: one section per topic, each starting with a `<!-- N -->` marker (the workbook can include sections as optional background reading).
+2. `units.json` + `units/u1.html … uN.html` (use `templates/unit.html`: one **problem-type card** per type, `div.ptype data-m="M1"` containing `div.ask`, `div.write`, `div.explain` and `div.steps`; every problem is `div.q data-uses="M1 M3"`) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this most carefully.** For each card:
+   - **ask**: a new example in the instructor's exact format (wording, tables, code layout, blanks);
+   - **write**: its complete answer, laid out as the student should write it;
+   - **explain**: teach the concept properly: what it is, why it works (the mechanism), the rules with reasons, a diagram where it helps, the traps, and a link to the lecture or official example. Aim for several paragraphs, not bullet fragments.
+   Then do the **audit pass**: for each problem, ask "could a student who has read only this unit's cards solve this?" If not, add a card, or move the problem. `"learn"` in units.json can optionally add notes sections as background reading.
 3. `mock.html` (from `templates/mock.html`; one source for both the test and the key). Every question must map to a workbook unit's method, and the scoring guide maps each Part to the unit to redo.
 4. `master.html` (sections A–J, as in the spec).
 
@@ -59,7 +63,8 @@ Rules:
 - `scripts/build.sh <build_dir> <materials_dir>/Study_Pack <COURSECODE>` renders all five PDFs with headless Chrome and runs `check_lines.py`. **If the coverage check fails, fix the content (add the missing teaching/method, or retag) — never delete the check or tag problems with methods they don't really use.** Fix flagged code lines that are too long by splitting them (every flagged line in units/ and wb_*.html should be zero), or by stacking a `.two` block vertically.
 - `scripts/contact_sheet.sh <pdf> <png>` for each PDF; look at it. Check for blank or near-empty pages, clipped tables, and answer keys leaking into the test version. Zoom into a solution page and a mock page at ~70 dpi to confirm they are readable.
 - Confirm the test PDF shows no answers, and the key PDF shows every answer and "Why".
-- **Student read-through:** render one whole unit (header → Learn it → methods → practice → solutions) at ~55 dpi and read it in order, as the student would. Does each problem follow from what came just before it?
+- **Verify every card's example answer** with a throwaway Python check (layouts, arithmetic, traces), like the practice solutions.
+- **Student read-through:** render one whole unit (header → cards → practice → solutions) at ~55 dpi and read it in order, as the student would. Does each card actually *explain*? Does each problem follow from the cards before it?
 
 ### 6. Deliver
 - Save the PDFs in `<materials_dir>/Study_Pack/`. Send them with SendUserFile (when available), with display "attach".
