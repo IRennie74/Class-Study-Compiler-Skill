@@ -6,7 +6,14 @@
 - Write new instances: change the numbers, the code, the constants and the structure, but keep the format and difficulty. Add harder variants that combine two ideas.
 - Paraphrase textbook statements when summarising official problems (master reference, section D). Never reproduce long copyrighted text.
 
-## Problem-type cards: show, answer, explain
+## Write for someone who knows nothing
+- The user said: "even looking at a problem for the first time, I have no clue." Write every card, glossary and solution for a complete beginner.
+- **Unit 0** covers the background the course assumes. Ask: what would someone need to know *before lecture 1* to follow it? Number systems, the machine model, notation, the language basics, how a problem page is laid out.
+- **Define before use.** Each unit's glossary lists every term and symbol it uses. Inside a card, define a new term the first time it appears, or name the Unit 0 card that teaches it.
+- **Decode the question** ("What you're looking at"): name each part of the question (template, given code, register line, tables, labels) and each symbol (%, $, parentheses, labels, 0x …), and say in plain words what is being asked.
+- Avoid "simply", "obviously", "as usual", and unexplained jargon or abbreviations.
+
+## Problem-type cards: show, decode, answer, explain
 - The **ask** is not a description of the problem type. It IS a problem, formatted exactly as the instructor formats them (the same wording style, table shapes, code layout, blanks), so the student recognises it instantly on the test.
 - The **write** is the answer a full-marks student would put on paper: setup line, one line per step with the reason, a clearly marked final answer, and a numeric check where possible.
 - The **explain** must teach, not list. Cover what the concept is; the mechanism that makes it work (e.g. why cmp sets both kinds of flags, why alignment needs padding); each rule with its reason; a small diagram (pre block) when spatial (stack, memory layout, register nesting); the classic traps; and where it appears in the lectures or official problems. If the student could ask "but why?" after reading it, it isn't finished.

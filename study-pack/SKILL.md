@@ -7,13 +7,19 @@ description: Turn a folder of course materials (lecture slides/PDFs, practice pr
 
 The user studies for tests this way: give them the course materials, and they get **five PDFs** built from those materials. The test is about **solving problems**, so the problem PDFs (the workbook and the mock) matter most. The notes support them.
 
-**How the user learns (non-negotiable).** For every problem type, show them **(1) the problem exactly as it will be asked**, then **(2) the answer to that example, written exactly the way they should write it**, then **(3) a real explanation of the whole concept** (what it is, why it works, how, with diagrams and traps; never just a list of rules), then **(4) a short checklist**. Only after that come the practice problems. Every practice problem must be solvable from the cards before it, and shows which cards it uses ("Uses M2 · M5"). `assemble.py` enforces both rules and fails the build otherwise. Showing facts without explaining them is a failure mode the user called out explicitly.
+**Assume the user knows NOTHING (non-negotiable).** Never rely on background the materials take for granted: the user has said that even looking at a problem for the first time, they have no clue what they're seeing. So:
+- Every pack starts with **Unit 0, "Start here"**: the prerequisite knowledge the course assumes, taught from zero with the same cards and practice. (For CISC 221 that was bits/bytes/hex, hex arithmetic, two's complement, CPU/registers/memory/addresses, reading one assembly line, C pointers and types, what a function looks like, and how to read a typical problem page.) Work out what a beginner would be missing for *this* course.
+- Every unit opens with a **Words and symbols** glossary (`units.json` → `"words"`): every term and symbol the unit uses, in plain language, before it is used.
+- Every card has a **"What you're looking at"** box (`div.read`) right after the example question. It explains what each part and symbol of the question means, and what the question is asking for, before any answer is shown.
+- Explanations define every term the first time it appears, or point to the Unit 0 card that does. Never write "as usual", "obviously", or use a term that hasn't been defined.
+
+**How the user learns (non-negotiable).** For every problem type, show them **(1) the problem exactly as it will be asked**, then **(1b) what they're looking at**: every part of that question decoded. Then **(2) the answer to that example, written exactly the way they should write it**, then **(3) a real explanation of the whole concept** (what it is, why it works, how, with diagrams and traps; never just a list of rules), then **(4) a short checklist**. Only after that come the practice problems. Every practice problem must be solvable from the cards before it, and shows which cards it uses ("Uses M2 · M5"). `assemble.py` enforces both rules and fails the build otherwise. Showing facts without explaining them is a failure mode the user called out explicitly.
 
 | # | PDF | What it is |
 |---|-----|------------|
 | 1 | Mock Test | Original test-style questions, deliberately longer than the real test, with work boxes |
 | 2 | Mock Test ANSWERS | The same test with answers in red and a "Why:" for each |
-| 3 | Unit Problem Workbook | **Centrepiece.** Per unit, one card per problem type: **how it's asked** (an example exactly as on the test) → **the answer, written exactly like this** → **how it works** (a full explanation of the concept) → **every time, do this**. Then 8–12 practice problems, each tagged with the cards it uses → worked solutions on the next page |
+| 3 | Unit Problem Workbook | **Centrepiece.** Starts with **Unit 0 "Start here"** (the background, from zero). Each unit opens with a **words and symbols** glossary, then one card per problem type: **how it's asked** (an example exactly as on the test) → **what you're looking at** (the question decoded) → **the answer, written exactly like this** → **how it works** (a full explanation of the concept) → **every time, do this**. Then 8–12 practice problems, each tagged with the cards it uses → worked solutions on the next page |
 | 4 | Complete Master Reference | Everything: lecture notes, the instructor's method, every official problem solved, taxonomy, traps, tables, glossary. Written so another AI could use it as full context |
 | 5 | Concepts Notes | Topic-by-topic teaching notes with worked examples and a cheat sheet |
 
@@ -40,13 +46,15 @@ Run `scripts/extract.sh <materials_dir> <scratchpad>/work`. It produces:
 - Catalogue the **problem types** the instructor uses (official practice problems, video examples, slide examples). Each type must show up in the workbook and the mock.
 - Capture **how the instructor solves problems** (the annotation style, tables, the order of steps). The show-your-work format must match it.
 - Note where official solutions are incomplete or wrong.
+- **Plan Unit 0 first:** list everything the course silently assumes (number systems, the machine model, notation, how problems are laid out…) and teach it with cards and practice.
 - **Plan each unit before writing any problem:** list its problem types, then its methods M1…Mn (one per type, including the "write the code" direction, "why" questions, edge cases and tricks), then which notes sections teach them.
 
 ### 4. Write the content (HTML)
 Copy `templates/` into `<scratchpad>/build/`, then write:
 1. `notes.html`: one section per topic, each starting with a `<!-- N -->` marker (the workbook can include sections as optional background reading).
-2. `units.json` + `units/u1.html … uN.html` (use `templates/unit.html`: one **problem-type card** per type, `div.ptype data-m="M1"` containing `div.ask`, `div.write`, `div.explain` and `div.steps`; every problem is `div.q data-uses="M1 M3"`) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this most carefully.** For each card:
+2. `units.json` + `units/u1.html … uN.html` (use `templates/unit.html`: one **problem-type card** per type, `div.ptype data-m="M1"` containing `div.ask`, `div.read`, `div.write`, `div.explain` and `div.steps`; every problem is `div.q data-uses="M1 M3"`) + `wb_intro.html` + `wb_outro.html` → the workbook. **Write this most carefully.** For each card:
    - **ask**: a new example in the instructor's exact format (wording, tables, code layout, blanks);
+   - **read**: "What you're looking at": name every part of the question (template, register line, tables, labels) and every symbol in it, and say what the question wants. Write it for someone seeing this kind of problem for the first time;
    - **write**: its complete answer, laid out as the student should write it;
    - **explain**: teach the concept properly: what it is, why it works (the mechanism), the rules with reasons, a diagram where it helps, the traps, and a link to the lecture or official example. Aim for several paragraphs, not bullet fragments.
    Then do the **audit pass**: for each problem, ask "could a student who has read only this unit's cards solve this?" If not, add a card, or move the problem. `"learn"` in units.json can optionally add notes sections as background reading.
@@ -64,7 +72,7 @@ Rules:
 - `scripts/contact_sheet.sh <pdf> <png>` for each PDF; look at it. Check for blank or near-empty pages, clipped tables, and answer keys leaking into the test version. Zoom into a solution page and a mock page at ~70 dpi to confirm they are readable.
 - Confirm the test PDF shows no answers, and the key PDF shows every answer and "Why".
 - **Verify every card's example answer** with a throwaway Python check (layouts, arithmetic, traces), like the practice solutions.
-- **Student read-through:** render one whole unit (header → cards → practice → solutions) at ~55 dpi and read it in order, as the student would. Does each card actually *explain*? Does each problem follow from the cards before it?
+- **Student read-through:** render one whole unit (header → cards → practice → solutions) at ~55 dpi and read it in order, as the student would. Read it as a complete beginner: is any word or symbol used before it is defined? Does each card actually *explain*? Does each problem follow from the cards before it?
 
 ### 6. Deliver
 - Save the PDFs in `<materials_dir>/Study_Pack/`. Send them with SendUserFile (when available), with display "attach".

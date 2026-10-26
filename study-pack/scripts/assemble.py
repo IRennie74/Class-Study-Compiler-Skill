@@ -19,8 +19,11 @@ Reads from BUILD_DIR:
 Writes BUILD_DIR/workbook.html.
 
 Unit order in the PDF (learn first, then practise what was just taught):
-  header → list of problem types M1..Mn → key facts → [optional background reading from notes]
+  Unit 0 ("Start here": the background the course assumes, taught from zero) comes first.
+  header → list of problem types M1..Mn → WORDS AND SYMBOLS glossary → key facts
+  → [optional background reading from notes]
   → one card per problem type:  HOW IT'S ASKED (example question, exactly as on the test)
+                                → WHAT YOU'RE LOOKING AT (every part and symbol of the question explained)
                                 → THE ANSWER, WRITTEN EXACTLY LIKE THIS → HOW IT WORKS (full
                                 explanation of the concept) → EVERY TIME, DO THIS (checklist)
   → practice (each problem shows "Uses M..") → solutions (new page, same tags)
@@ -30,8 +33,9 @@ Coverage check (the build FAILS on any of these):
   * a problem that uses a method the unit does not define
   * a method that no problem practises
   * practice and solution numbering that don't match
-  * a problem-type card missing its example question (div.ask), written answer (div.write)
-    or explanation (div.explain)
+  * a problem-type card missing its example question (div.ask), its "what you're looking at"
+    decoding (div.read), its written answer (div.write) or its explanation (div.explain)
+  * a unit without a "words" glossary, or a pack whose first unit is not Unit "0" (Start here)
   * a "learn" section number that is not in notes.html
 """
 import json
@@ -72,7 +76,8 @@ def card_errors(n: str, method_html: str) -> list:
     """Every problem-type card must show: the question as asked, the written answer, the explanation."""
     errors = []
     for m, body in re.findall(r'<div class="ptype" data-m="(M\d+)">(.*?)(?=<div class="ptype"|\Z)', method_html, re.S):
-        for part, label in (("ask", "how it's asked"), ("write", "the written answer"), ("explain", "how it works")):
+        for part, label in (("ask", "how it's asked"), ("read", "what you're looking at"),
+                            ("write", "the written answer"), ("explain", "how it works")):
             if f'class="{part}"' not in body:
                 errors.append(f"unit {n}: card {m} is missing '{label}' (div.{part})")
     return errors
@@ -114,6 +119,9 @@ def main() -> None:
     notes = notes_sections(build)
     out = [(build / "wb_intro.html").read_text()]
     errors = []
+    if not units or units[0].get("n") != "0":
+        errors.append('the first unit must be Unit "0", a "Start here" unit teaching the background '
+                      "the course assumes (never assume the student already knows it)")
     for u in units:
         n = u["n"]
         parts = unit_parts(build / "units" / f"u{n}.html")
@@ -144,12 +152,20 @@ def main() -> None:
         out.append(
             f'<div class="pb unit-head"><h1>Unit {n} — {u["title"]}</h1>'
             f'<div class="sub">{u["lectures"]} · {len(methods)} problem types, each: how it\'s asked → '
-            f"the answer written out → how it works · then {n_problems} practice problems → worked solutions</div></div>"
+            f"what you're looking at → the answer written out → how it works · then {n_problems} practice problems → worked solutions</div></div>"
         )
         out.append(
             '<div class="objectives"><b>The problem types in this unit (you will learn each one, then practise it):</b><ol class="mlist">'
             + "".join(f'<li data-m="{m}">{t.rstrip(".")}</li>' for m, t in methods)
             + "</ol></div>"
+        )
+        words = u.get("words", [])
+        if not words:
+            errors.append(f"unit {n}: no 'words' glossary in units.json (define every term and symbol it uses)")
+        out.append(
+            '<div class="words"><b>Words and symbols used in this unit (read these first):</b><dl>'
+            + "".join(f"<dt>{t}</dt><dd>{d}</dd>" for t, d in words)
+            + "</dl></div>"
         )
         facts = "".join(f"<li>{f}</li>" for f in u.get("facts", []))
         if facts:

@@ -1,6 +1,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Flags after cmp</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>%rax = 4</code>, <code>%rbx = 6</code>. After <code>cmpq %rbx,%rax</code>, give ZF, SF, CF and OF, and say whether <code>jl</code>, <code>jb</code>, <code>jg</code> and <code>jne</code> jump.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>cmpq %rbx,%rax</code> is a <b>compare</b> instruction: it subtracts and keeps only some 1-bit <b>flags</b> describing the result. ZF, SF, CF and OF are those flags (zero, sign, carry, overflow). <code>jl</code>, <code>jb</code>, <code>jg</code> and <code>jne</code> are <b>conditional jumps</b>: "go to another place in the code if the flags say …". You report the four flags and whether each jump would happen.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>cmpq %rbx,%rax computes rax − rbx = 4 − 6
 Signed view:    4 − 6 = −2   → not zero: ZF=0 · negative: SF=1 · in range: OF=0
@@ -25,6 +27,8 @@ jne (~ZF)             taken</pre></div>
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Reading cmp/test + jump/set</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 x is in %rdi. What C condition makes each jump happen? (a) <code>cmpq $5,%rdi ; jge L</code> (b) <code>testq %rdi,%rdi ; je L</code> (c) <code>testq $1,%rdi ; jne L</code> (d) <code>cmpq $5,%rdi ; ja L</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Each line is a test (cmp or test) followed by a conditional jump to a label L. The question asks: in C terms, when does the jump happen? <code>$5</code> is the constant 5, and x is in %rdi.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) cmp $5,x → "x ? 5", ge signed        → x &gt;= 5
 (b) test x,x → x &amp; x = x, je (ZF)         → x == 0
@@ -44,6 +48,8 @@ x is in %rdi. What C condition makes each jump happen? (a) <code>cmpq $5,%rdi ; 
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Type and comparison from cmp + set</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.13 style) <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Give data_t and COMP for: (A) <code>cmpw %si,%di ; setl %al</code> (B) <code>cmpb %sil,%dil ; setae %al</code> (C) <code>cmpq %rsi,%rdi ; sete %al</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>int comp(data_t a, data_t b) { return a COMP b; }</code> is a C function where both the type (data_t) and the comparison operator (COMP: &lt;, &gt;=, ==, …) are hidden. Each line pair is the compiled code: a compare and then a <code>set</code> instruction (which writes 0 or 1 into the byte <code>%al</code>). <code>%si</code>/<code>%di</code> and <code>%sil</code>/<code>%dil</code> are the 2- and 1-byte parts of %rsi/%rdi.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>     size (suffix)    signedness (letter)     data_t                      COMP
 (A)  w = 2 bytes      l = signed less         short                       &lt;
@@ -58,6 +64,8 @@ x is in %rdi. What C condition makes each jump happen? (a) <code>cmpq $5,%rdi ; 
 <div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>C comparison → assembly</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the assembly for <code>int ge(unsigned long a, unsigned long b) { return a &gt;= b; }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>You're given a C function that returns the result of a comparison (1 for true, 0 for false), and you write its assembly. <code>unsigned long</code> means the numbers are never negative, which affects which instruction you choose.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>ge:                       # a in %rdi, b in %rsi
   cmpq   %rsi, %rdi       # compare a : b   (computes a − b)
@@ -97,6 +105,8 @@ Fill in the C. Here x is in %rdi and y in %rsi.
   movq  %rdi, %rax
 .L3:
   ret</pre></div></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>C template with blanks on the left; compiled code on the right. New pieces: <code>cmpq</code> (compare), <code>jle .L2</code> (jump to the label .L2 if "less or equal"), <code>testq</code> (another kind of test), <code>jns</code> (jump if not negative), and labels such as <code>.L2:</code>, which mark places to jump to. <code>ret</code> ends the function, returning %rax.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Map: x → %rdi, y → %rsi
 leaq (%rdi,%rsi),%rax     rax = x + y                        ⇒ val = x + y
@@ -133,6 +143,8 @@ Fill in <code>long g(long x, long y) { return ____ ? ____ : ____; }</code>
     cmpq   $10, %rdi
     cmovg  %rdx, %rax
     ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Fill in a C conditional expression <code>cond ? a : b</code> ("if cond then a else b"). The assembly computes two values, compares, then uses <code>cmovg</code>, a <b>conditional move</b>: "copy if greater".</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>rax = x + y           ← default value
 rdx = x · y           ← alternative
@@ -149,6 +161,8 @@ return x &gt; 10 ? x * y : x + y;</pre></div>
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>When cmov cannot be used</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 For each, say whether GCC could compile it with a conditional move, and why: (a) <code>v = x &gt; y ? x - y : y - x;</code> (b) <code>v = p ? *p : 0;</code> (c) <code>v = x &gt; 0 ? x *= 7 : x += 3;</code> (d) <code>v = t ? slow1(x) : slow2(x);</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Four lines of C, each a conditional expression. The question asks whether each can be compiled with a <b>conditional move</b> (an instruction that computes both options and keeps one), and why or why not. <code>*p</code> reads through a pointer; <code>x *= 7</code> changes x.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) yes: both values are cheap and safe to compute
 (b) no:  cmov computes both sides, so *p would be read even when p == NULL (crash)
@@ -166,6 +180,8 @@ For each, say whether GCC could compile it with a conditional move, and why: (a)
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>&amp;&amp; / || short-circuit</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.16 style) For <code>void cap(long *p, long m) { if (p &amp;&amp; *p &lt; m) *p = m; }</code>: (A) write a goto version that follows the assembly's control flow; (B) explain why there are two conditional branches.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>if (p &amp;&amp; *p &lt; m)</code> uses C's <code>&amp;&amp;</code> ("and"). A <b>goto version</b> means rewriting the code using only <code>if (…) goto label;</code> and labels, the way the machine actually runs it. Part B asks for an explanation in words.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(A) void cap_goto(long *p, long m) {
       if (p == 0) goto done;        // testq %rdi,%rdi ; je done
@@ -185,6 +201,8 @@ For each, say whether GCC could compile it with a conditional move, and why: (a)
 <div class="ptype" data-m="M9"><h3><span class="mtag">M9</span>C → goto form → branch assembly</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the goto version, then the branching assembly, for <code>long m(long a, long b) { long r; if (a &lt; b) r = b; else r = a - b; return r; }</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>You're given a C if/else and asked to (1) rewrite it in goto form, then (2) write the assembly that uses jumps (branches).</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>long m_goto(long a, long b) {        m:                     # a in %rdi, b in %rsi
   long r;                              cmpq %rsi, %rdi      # a : b
@@ -206,6 +224,8 @@ Done:                                  subq %rsi, %rax      # r = a − b
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.20 style) <code>#define OP ___</code> · <code>long arith(long x) { return x OP 16; }</code> compiles to the code below. What is OP? Annotate each line.
 <pre>leaq 15(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $4,%rax ; ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>#define OP ___</code> hides a C operator (+, −, *, /, …). The assembly shown is what <code>x OP 16</code> compiled into. New instructions: <code>testq</code> (check the sign of x), <code>cmovns</code> (copy if not negative), <code>sarq $4</code> (shift right by 4). You identify OP and explain each line.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>OP is /   (x / 16)
 leaq 15(%rdi),%rax    temp = x + 15            bias = 2⁴ − 1 for negative x

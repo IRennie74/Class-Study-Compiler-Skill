@@ -1,6 +1,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Toolchain commands</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 The command <code>gcc -Og -o app main.c helper.c</code> is run. List, in order, every tool that runs and the files it produces. Then say what <code>objdump -d app</code> does.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>gcc</code> is the program that turns C code into a runnable program. The words after it are <b>options</b> (flags): <code>-Og</code> sets how hard it optimises, and <code>-o app</code> names the output file <i>app</i>. <code>main.c</code> and <code>helper.c</code> are C source files. <code>objdump -d app</code> runs a different tool on the finished program. The question asks which steps happen in between, and what each one produces.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Stage        Tool        Input               Output
 1 compile    compiler    main.c, helper.c    main.s, helper.s  (assembly text)
@@ -30,6 +32,8 @@ objdump -d app: the disassembler reads the bytes of app and prints the assembly.
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>ISA vs. microarchitecture</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Classify each item as part of the <b>ISA</b> or the <b>microarchitecture</b>: (a) the <code>leaq</code> instruction exists; (b) the processor has a 1 MB L2 cache; (c) there are 16 integer registers; (d) the chip runs at 4.0 GHz.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The question lists facts about a processor and asks you to sort them into two groups. <b>ISA</b> and <b>microarchitecture</b> are the two group names, explained below. <code>leaq</code> is an instruction name; L2 cache, GHz and "16 integer registers" are hardware features.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Item                 Visible to an assembly programmer?   Answer
 (a) leaq exists      yes: you can write it                ISA
@@ -49,6 +53,8 @@ Classify each item as part of the <b>ISA</b> or the <b>microarchitecture</b>: (a
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Register names</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Give the 4-byte, 2-byte and 1-byte names of <code>%rcx</code>, <code>%rdi</code> and <code>%r13</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>%rcx</code>, <code>%rdi</code> and <code>%r13</code> are names of <b>registers</b>, the CPU's 16 built-in storage boxes (Unit 0 M4). The % sign just marks a register name. "4-byte, 2-byte, 1-byte names" means the other names that refer to only part of the same box.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Register  Group             4 bytes   2 bytes   1 byte
 %rcx      a/b/c/d           %ecx      %cx       %cl
@@ -74,6 +80,8 @@ Give the 4-byte, 2-byte and 1-byte names of <code>%rcx</code>, <code>%rdi</code>
 <div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Writing part of a register</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>%rax = 0x0123456789ABCDEF</code>. The lines run in order. Give %rax after each: (a) <code>movb $0x11,%al</code> (b) <code>movw $0x2233,%ax</code> (c) <code>movl $0x44,%eax</code> (d) <code>movb $0x80,%al</code>; then (e) <code>movsbq %al,%rdx</code>, giving %rdx.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>%rax = 0x0123456789ABCDEF</code> gives the starting contents of register %rax: 16 hex digits = 8 bytes. Each line is an instruction to run in order: <code>movb</code>/<code>movw</code>/<code>movl</code> copy a 1/2/4-byte value, and <code>$0x11</code> is a constant. <code>%al</code>, <code>%ax</code> and <code>%eax</code> are the 1/2/4-byte parts of %rax (M3). <code>movsbq %al,%rdx</code> copies the byte in %al into all 8 bytes of %rdx.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) movb $0x11,%al      0x0123456789ABCD11   only byte 0 changes
 (b) movw $0x2233,%ax    0x0123456789AB2233   only bytes 0–1 change
@@ -95,6 +103,8 @@ Give the 4-byte, 2-byte and 1-byte names of <code>%rcx</code>, <code>%rdi</code>
 <div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Operand values</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Memory: M[0x300] = 0xA, M[0x308] = 0xB, M[0x310] = 0xC. Registers: %rax = 0x300, %rbx = 0x8, %rcx = 0x2. Give the value of each operand: <code>%rbx</code>, <code>$0x308</code>, <code>0x310</code>, <code>(%rax)</code>, <code>8(%rax)</code>, <code>(%rax,%rbx)</code>, <code>8(%rax,%rcx,4)</code>, <code>752(,%rbx,2)</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Two tables describe the machine's state: memory (address: value) and registers. Each <b>operand</b> is something an instruction could read. <code>%rbx</code> is a register, <code>$0x308</code> is a constant (the $), <code>0x310</code> with no $ is a memory address, and anything with parentheses describes a memory address to compute. The question asks what value each one stands for.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Operand           Kind        Address work                          Value
 %rbx              register    —                                     0x8
@@ -123,6 +133,8 @@ $0x308            immediate   — (no memory read)                    0x308
 <div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Instruction suffix</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Fill in the suffix: <code>mov__ %ecx,(%rdx)</code> · <code>mov__ (%rsp),%r9</code> · <code>mov__ $5,%sil</code> · <code>mov__ %bp,8(%rax)</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>mov__</code> is a move (copy) instruction whose size letter is missing. Each line copies from the first operand to the second. You must supply the letter: b, w, l or q (1, 2, 4 or 8 bytes).</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>movl %ecx,(%rdx)      %ecx is 4 bytes → l
 movq (%rsp),%r9       %r9 is 8 bytes → q          (%rsp in ( ) is just an address)
@@ -143,6 +155,8 @@ movw %bp,8(%rax)      %bp is 2 bytes → w</pre></div>
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>What's wrong with this instruction?</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Each line causes an assembler error. Explain why: <code>movq (%rdi),8(%rdi)</code> · <code>movl $7,%rax</code> · <code>movw $0x10,(%eax)</code> · <code>movq %rax,(%rdi,%rsp,2)</code> · <code>movb %dl,$1</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Each line is an instruction the assembler (the tool that turns assembly into bytes) refuses to accept. The question asks which rule each one breaks. The parts: a mov with a size letter, then a source and a destination.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>movq (%rdi),8(%rdi)        both operands are memory (memory-to-memory is not allowed)
 movl $7,%rax               suffix l (4 bytes) does not match %rax (8 bytes)
@@ -164,6 +178,8 @@ movb %dl,$1                an immediate cannot be a destination</pre></div>
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Cast moves <code>*dp = (dest_t)*sp</code></h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give the two instructions for <code>*dp = (dest_t)*sp;</code> using %rax (or part of it): (a) short → int (b) unsigned char → int (c) long → char.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>src_t</code> and <code>dest_t</code> are placeholder names for C types, so each row is one case (e.g. short → int). <code>*dp = (dest_t)*sp</code> means: read the value sp points to, convert it to dest_t, and store it where dp points. <code>(dest_t)</code> is a C <b>cast</b> (a type conversion). sp is in %rdi and dp in %rsi, so <code>(%rdi)</code> is the source in memory and <code>(%rsi)</code> the destination.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) short → int           movswl (%rdi),%eax ; movl %eax,(%rsi)
                           wider + signed source → sign-extend
@@ -191,6 +207,8 @@ movq %rdx, (%rdi)
 addq %rax, %rdx
 movq %rdx, (%rsi)
 ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>void rotate(long *a, long *b)</code> is the C prototype: the function takes two pointers to longs and returns nothing (void). The assembly below it is what the compiler produced. <code>(%rdi)</code> means the memory that a points to. The question asks for the C body.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Map: a → %rdi, b → %rsi
 Line                   Meaning
@@ -215,6 +233,8 @@ void rotate(long *a, long *b) { long x = *a; long y = *b; *a = y; *b = x + y; }<
 <div class="ptype" data-m="M10"><h3><span class="mtag">M10</span>C → assembly for pointer code</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the x86-64 assembly for <code>void inc2(long *p) { p[1] = p[0] + 2; }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>void inc2(long *p)</code> takes one pointer, which arrives in %rdi. <code>p[1]</code> and <code>p[0]</code> are the 2nd and 1st longs at that address (Unit 0 M6). You are asked to go the other way: from the C to the instructions.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>inc2:                       # p in %rdi
   movq (%rdi), %rax         # rax = p[0]

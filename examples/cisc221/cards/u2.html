@@ -1,6 +1,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>leaq as algebra</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 %rax holds x and %rcx holds y. Give a formula for the value stored in %rdx by each instruction: (a) <code>leaq 6(%rax),%rdx</code> (b) <code>leaq (%rax,%rcx,4),%rdx</code> (c) <code>leaq 7(%rax,%rax,8),%rdx</code> (d) <code>leaq 0xA(,%rcx,4),%rdx</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>leaq</code> is an instruction ("load effective address") that computes a number from the pattern <code>D(Rb,Ri,S)</code>. Here %rax holds x and %rcx holds y, and each result goes into %rdx. The question asks you to write that number as algebra in x and y.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>          D + Rb + S·Ri
 (a)       6 + x              = x + 6
@@ -17,6 +19,8 @@
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Instruction effects table</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 M[0x100] = 0xFF, M[0x108] = 0xAB, M[0x110] = 0x13, M[0x118] = 0x11; %rax = 0x100, %rcx = 0x1, %rdx = 0x3. For each instruction (each starts from the original state), give the destination and its new value: <code>addq %rcx,(%rax)</code> · <code>subq %rdx,8(%rax)</code> · <code>imulq $16,(%rax,%rdx,8)</code> · <code>decq %rcx</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The two tables give memory and register contents before anything runs. Each instruction then changes one place: its <b>destination</b>, the last operand. "Each starts from the original state" means the rows are independent: don't carry results from one row to the next. You give where the result goes, and its new value.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Instruction                Destination               Old  op  source    New value
 addq %rcx,(%rax)           M[0x100]                  0xFF + 0x1         0x100
@@ -46,6 +50,8 @@ Fill in the C. Here x is in %rdi, y in %rsi and z in %rdx.
   salq  $4, %rdx
   imulq %rdx, %rax
   ret</pre></div></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Left: C code where the right-hand sides are hidden (______). Right: the assembly the compiler made from the complete C. The comment line tells you x, y, z are in %rdi, %rsi, %rdx. t1 to t4 are temporary variables; you find what each one equals by reading the assembly.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Map: x → %rdi   y → %rsi   z → %rdx
 Line                     Destination ← new value         Name
@@ -70,6 +76,8 @@ Check x=1, y=2, z=3:  t1=3, t2=6, t3=96, t4=576.  asm: rax 3→6, rdx 6→96, ra
 <div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Verify with numbers</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Never asked on its own, but it is what makes your M3 answers correct.) Someone answered the arith question above with <code>t3 = y * 16</code>. Use numbers to show whether that is right.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>This card isn't a separate test question. It's the habit that checks any "fill in the C" answer: plug small numbers into your answer and into the assembly and compare.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Pick x = 1, y = 2, z = 3.
 Assembly:  rdx = 3·2 = 6 → 6 &lt;&lt; 4 = 96        so t3 = 96
@@ -84,6 +92,8 @@ Correct:   y * 48 = 96 ✓   (the leaq made 3y BEFORE the shift)</pre></div>
 <div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Signed vs. unsigned clues; not vs. neg</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Fill in: <code>t2 = t1 ___ 3; t3 = ___t2;</code> given <code>sarq $3,%rdi</code> then <code>notq %rdi</code>, where t1 is a <code>long</code>. What would change if the code used <code>shrq</code> and <code>negq</code>?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Two blanks to fill in from the instructions: <code>sarq $3</code> is "shift right by 3", and <code>notq</code> is a bit-flipping instruction. The question also asks how the answer would change with the similar instructions <code>shrq</code> and <code>negq</code>.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>sarq $3 → t2 = t1 &gt;&gt; 3      arithmetic shift: t1 is a signed long
 notq    → t3 = ~t2          bitwise NOT
@@ -101,6 +111,8 @@ With negq: t3 = -t2 (two's-complement negation), not ~t2.</pre></div>
 <div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>C → assembly for expressions</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the assembly for <code>long f(long x, long y) { return (x - y) * (y + 3); }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A complete C function is given, and you write the assembly. <code>(x - y) * (y + 3)</code> must be computed using instructions, with the inputs in %rdi/%rsi and the result in %rax.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>f:                          # x in %rdi, y in %rsi
   movq  %rdi, %rax          # rax = x
@@ -121,6 +133,8 @@ Write the assembly for <code>long f(long x, long y) { return (x - y) * (y + 3); 
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Multiply by a constant without imul</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Using only leaq, shifts, add and sub, compute (a) 12x and (b) 7x, with x in %rdi and the result in %rax.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>You must produce 12·x and 7·x using only cheap instructions (no multiply instruction). x starts in %rdi; put the answer in %rax.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) 12 = 3 · 4
     leaq (%rdi,%rdi,2), %rax    # 3x
@@ -140,6 +154,8 @@ Using only leaq, shifts, add and sub, compute (a) 12x and (b) 7x, with x in %rdi
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Short-answer "why" questions</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.11 style) Code often contains <code>xorq %rdx,%rdx</code> even where the C has no XOR. (A) What does it do? (B) What is the straightforward alternative? (C) Why does the compiler prefer the XOR?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>xorq %rdx,%rdx</code> is an XOR instruction with the same register twice. The question asks what it accomplishes, the obvious alternative, and why the compiler prefers it: a "why" question answered in sentences.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(A) x ^ x = 0 for every x, so it sets %rdx to 0 (it implements rdx = 0).
 (B) movq $0, %rdx

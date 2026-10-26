@@ -1,5 +1,99 @@
 [
   {
+    "n": "0",
+    "title": "Start here: the basics everything else assumes",
+    "lectures": "Background for L09–L15 (read this first)",
+    "learn": [],
+    "facts": [
+      "One hex digit = 4 bits; two hex digits = 1 byte.",
+      "The same bits can be an unsigned or a signed (two's complement) number.",
+      "Registers are 16 boxes in the CPU; memory is a row of numbered bytes.",
+      "An instruction reads as: operation+size  source, destination."
+    ],
+    "words": [
+      [
+        "bit",
+        "a single 0 or 1"
+      ],
+      [
+        "byte",
+        "8 bits; the basic unit of memory, written as 2 hex digits"
+      ],
+      [
+        "hex / 0x…",
+        "base-16 numbers (digits 0–9, A–F); 0x marks a hex number"
+      ],
+      [
+        "binary / …₂",
+        "base-2 numbers (only 0 and 1)"
+      ],
+      [
+        "signed / unsigned",
+        "whether a number's bits may represent a negative value (signed) or never (unsigned)"
+      ],
+      [
+        "two's complement",
+        "the way signed numbers are stored: top bit 1 means negative"
+      ],
+      [
+        "CPU",
+        "the processor that runs instructions"
+      ],
+      [
+        "register",
+        "one of 16 small, fast storage boxes inside the CPU, each 8 bytes"
+      ],
+      [
+        "memory",
+        "the big, slower storage: a long row of numbered bytes"
+      ],
+      [
+        "address",
+        "the number of a location in memory"
+      ],
+      [
+        "M[a]",
+        "the value stored in memory at address a"
+      ],
+      [
+        "instruction",
+        "one small command for the CPU, such as add or move"
+      ],
+      [
+        "assembly",
+        "the human-readable text form of instructions"
+      ],
+      [
+        "operand",
+        "a thing an instruction works on (a register, constant or memory)"
+      ],
+      [
+        "%rax, %rdi …",
+        "register names; % marks a register"
+      ],
+      [
+        "$5",
+        "the constant number 5"
+      ],
+      [
+        "(%rdi)",
+        "memory at the address held in %rdi"
+      ],
+      [
+        "label (f:, .L2:)",
+        "a name for a spot in the code"
+      ],
+      [
+        "pointer",
+        "a variable holding an address"
+      ],
+      [
+        "&amp;x / *p",
+        "address of x / the thing p points to"
+      ]
+    ]
+  },
+  {
     "n": "1",
     "title": "Foundations: registers, operands, addressing, mov",
     "lectures": "Lectures L09–L10",
@@ -11,7 +105,73 @@
       "movz/movs widen according to the SOURCE type; narrowing = load at full size, store the low part.",
       "Toolchain: .c → (gcc -S) .s → (as) .o → (ld + .a) executable; objdump -d disassembles. ISA vs microarchitecture."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "compiler / assembler / linker",
+        "the tools that turn C → assembly → machine code → a runnable program"
+      ],
+      [
+        "disassembler (objdump)",
+        "turns machine code back into assembly text"
+      ],
+      [
+        "ISA",
+        "the instruction set architecture: everything an assembly programmer can see and use"
+      ],
+      [
+        "microarchitecture",
+        "how a particular chip implements the ISA (cache, speed…)"
+      ],
+      [
+        "%eax, %ax, %al",
+        "the 4-, 2- and 1-byte parts of %rax"
+      ],
+      [
+        "suffix b/w/l/q",
+        "the size letter on an instruction: 1/2/4/8 bytes"
+      ],
+      [
+        "mov",
+        "copy a value from source to destination"
+      ],
+      [
+        "immediate",
+        "a constant written in the instruction ($5)"
+      ],
+      [
+        "D(Rb,Ri,S)",
+        "a memory address computed as D + Rb + S·Ri"
+      ],
+      [
+        "displacement D",
+        "a constant added to the address"
+      ],
+      [
+        "base / index register",
+        "the registers added into the address (index is multiplied by S)"
+      ],
+      [
+        "scale S",
+        "1, 2, 4 or 8: the index multiplier"
+      ],
+      [
+        "zero-/sign-extend",
+        "make a value wider by filling with 0s / with copies of the sign bit"
+      ],
+      [
+        "movz / movs",
+        "move with zero- / sign-extension"
+      ],
+      [
+        "cast",
+        "a C type conversion, e.g. (int)x"
+      ],
+      [
+        "dereference",
+        "go to the address in a pointer: *p or (%reg)"
+      ]
+    ]
   },
   {
     "n": "2",
@@ -24,7 +184,49 @@
       "Multiply tricks: (r,r,2) = 3r, (r,r,4) = 5r, (r,r,8) = 9r, then salq $k multiplies by 2^k.",
       "add/sub/imul are the same for signed and unsigned. xor r,r = 0. cqto + idivq does signed division (quotient in rax, remainder in rdx)."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "leaq",
+        "computes an address-shaped expression D + a + S·b into a register, without reading memory"
+      ],
+      [
+        "add / sub / imul",
+        "add / subtract (dest − src) / multiply"
+      ],
+      [
+        "sal (shl)",
+        "shift left: multiply by 2^k"
+      ],
+      [
+        "sar / shr",
+        "shift right: signed (fills with the sign bit) / unsigned (fills with 0)"
+      ],
+      [
+        "and / or / xor / not",
+        "bitwise operations (&amp;, |, ^, ~ in C)"
+      ],
+      [
+        "neg",
+        "negate: x becomes −x"
+      ],
+      [
+        "inc / dec",
+        "add 1 / subtract 1"
+      ],
+      [
+        "destination",
+        "the last operand: where the result goes"
+      ],
+      [
+        "annotate",
+        "write next to each line what its destination now holds"
+      ],
+      [
+        "t1, t2…",
+        "temporary C variables in the template"
+      ]
+    ]
   },
   {
     "n": "3",
@@ -37,7 +239,73 @@
       "setX writes 1 byte → movzbl. The compiler jumps on the NEGATED C test to skip the then-block.",
       "cmov: both values are computed, then one is chosen. Not used when a side might fault, be expensive, or have side effects."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "condition codes / flags",
+        "four 1-bit values describing the last calculation: ZF, SF, CF, OF"
+      ],
+      [
+        "ZF / SF",
+        "zero flag (result was 0) / sign flag (result negative)"
+      ],
+      [
+        "CF / OF",
+        "carry flag (unsigned overflow) / overflow flag (signed overflow)"
+      ],
+      [
+        "cmp b,a",
+        "compare: computes a − b only to set the flags"
+      ],
+      [
+        "test b,a",
+        "computes a &amp; b only to set the flags"
+      ],
+      [
+        "jump (jmp) / jX",
+        "go to a label always / only if condition X holds"
+      ],
+      [
+        "label .L2",
+        "a place in the code that jumps go to"
+      ],
+      [
+        "setX",
+        "write 1 or 0 into a 1-byte register depending on condition X"
+      ],
+      [
+        "movzbl",
+        "copy a byte, zero-extending it to 4 bytes"
+      ],
+      [
+        "g, ge, l, le",
+        "signed greater / ≥ / less / ≤"
+      ],
+      [
+        "a, ae, b, be",
+        "unsigned above / ≥ / below / ≤"
+      ],
+      [
+        "e / ne",
+        "equal / not equal"
+      ],
+      [
+        "branch",
+        "a conditional jump; makes if/else in assembly"
+      ],
+      [
+        "goto version",
+        "C rewritten with only if-goto and labels"
+      ],
+      [
+        "cmovX",
+        "conditional move: copy only if condition X holds"
+      ],
+      [
+        "short-circuit",
+        "&amp;&amp;/|| skip the second test when the first decides"
+      ]
+    ]
   },
   {
     "n": "4",
@@ -49,7 +317,61 @@
       "Switch: jump table of 8-byte addresses, jmp *.L(,%reg,8). One unsigned ja catches both below and above the range.",
       "Offset subtraction → smallest case; cmp constant + offset → largest case. Entries equal to default = missing; repeated labels = shared; no jmp at the end of a block = fall-through."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "loop / back-edge",
+        "repeated code; the jump backwards that repeats it"
+      ],
+      [
+        "do-while",
+        "a loop that runs the body first and tests at the end"
+      ],
+      [
+        "while",
+        "a loop that tests before each run (may run 0 times)"
+      ],
+      [
+        "jump-to-middle",
+        "a while loop compiled as: jump to the test first, test at the bottom"
+      ],
+      [
+        "guarded-do",
+        "a while loop compiled as: a test before the loop, then a do-while"
+      ],
+      [
+        "for (init; test; update)",
+        "a loop with setup, condition and per-step change"
+      ],
+      [
+        "init / body / update / test",
+        "the four parts of every loop"
+      ],
+      [
+        "iteration",
+        "one pass through the loop body"
+      ],
+      [
+        "switch / case",
+        "C's multi-way choice on one value"
+      ],
+      [
+        "jump table",
+        "an array of code addresses, one per case value"
+      ],
+      [
+        "indirect jump jmp *…",
+        "a jump to an address read from memory"
+      ],
+      [
+        "fall-through",
+        "a case without break continues into the next case"
+      ],
+      [
+        "default",
+        "the code for values that match no case"
+      ]
+    ]
   },
   {
     "n": "5",
@@ -62,7 +384,65 @@
       "Callee-saved: %rbx %rbp %r12–%r15 (+%rsp). Caller-saved: %rax, the arg registers, %r10, %r11, all xmm.",
       "Frame: return addr | saved regs | locals | argument build area. Locals go on the stack if their address is taken, or if they are arrays/structs, or if registers run out."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "procedure / function",
+        "a named piece of code you call and return from"
+      ],
+      [
+        "stack",
+        "a memory area used as a pile of 8-byte values"
+      ],
+      [
+        "%rsp",
+        "the stack pointer: the address of the top of the stack"
+      ],
+      [
+        "push / pop",
+        "put a value on the stack / take the top value off"
+      ],
+      [
+        "call / ret",
+        "jump into a function (saving the return address) / jump back"
+      ],
+      [
+        "return address",
+        "the address of the instruction after the call"
+      ],
+      [
+        "%rip",
+        "the instruction pointer: the address of the next instruction"
+      ],
+      [
+        "caller / callee",
+        "the function making a call / the one being called"
+      ],
+      [
+        "calling convention",
+        "the agreed rules: args in %rdi, %rsi, %rdx, %rcx, %r8, %r9; result in %rax"
+      ],
+      [
+        "stack frame",
+        "a function's own area of the stack"
+      ],
+      [
+        "local variable",
+        "a variable that exists only inside one call"
+      ],
+      [
+        "caller-saved / callee-saved",
+        "registers any call may destroy / registers a function must restore before returning"
+      ],
+      [
+        "recursion",
+        "a function that calls itself"
+      ],
+      [
+        "base case",
+        "the input where recursion stops"
+      ]
+    ]
   },
   {
     "n": "6",
@@ -75,7 +455,45 @@
       "Fixed N → shifts and leaq; variable n → imulq.",
       "Reverse-engineering dimensions: the multiplier of the first index = the column count."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "array T A[L]",
+        "L values of type T stored one after another"
+      ],
+      [
+        "element size K",
+        "sizeof(T): bytes per element"
+      ],
+      [
+        "x_A",
+        "the start address of array A"
+      ],
+      [
+        "pointer arithmetic",
+        "A + i moves i elements (i·K bytes), not i bytes"
+      ],
+      [
+        "2-D (nested) array A[R][C]",
+        "R rows of C elements each, stored row after row"
+      ],
+      [
+        "row-major",
+        "the storage order: all of row 0, then row 1, …"
+      ],
+      [
+        "multi-level array",
+        "an array of pointers, each pointing to its own row array"
+      ],
+      [
+        "bounds checking",
+        "checking an index is valid; C doesn't do it"
+      ],
+      [
+        "size_t",
+        "C's unsigned type for sizes and indexes (8 bytes)"
+      ]
+    ]
   },
   {
     "n": "7",
@@ -88,6 +506,60 @@
       "x86 is little endian (least significant byte at the lowest address).",
       "XMM0–15: FP args in %xmm0.., return in %xmm0, all caller-saved. ss/sd scalar, ps/pd packed (SIMD)."
     ],
-    "learn": []
+    "learn": [],
+    "words": [
+      [
+        "struct",
+        "several named fields stored together in one block"
+      ],
+      [
+        "field / member",
+        "one named part of a struct"
+      ],
+      [
+        "offset",
+        "how many bytes from the struct's start a field begins"
+      ],
+      [
+        "sizeof",
+        "the total size in bytes"
+      ],
+      [
+        "alignment",
+        "the rule that a K-byte value starts at an address that is a multiple of K"
+      ],
+      [
+        "padding",
+        "unused bytes inserted to keep fields aligned"
+      ],
+      [
+        "p-&gt;f",
+        "the field f of the struct that p points to"
+      ],
+      [
+        "union",
+        "like a struct, but every field shares the same memory"
+      ],
+      [
+        "endianness",
+        "the order of a value's bytes in memory: little endian (x86) puts the lowest byte first"
+      ],
+      [
+        "float / double",
+        "numbers with fractions: 4 / 8 bytes"
+      ],
+      [
+        "%xmm0–%xmm15",
+        "registers for floating-point values"
+      ],
+      [
+        "ss / sd / ps",
+        "scalar single (one float) / scalar double / packed single (several at once)"
+      ],
+      [
+        "SIMD",
+        "one instruction working on several values at once"
+      ]
+    ]
   }
 ]

@@ -1,6 +1,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Sizes and 1-D addresses</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.36 style) Fill in the element size, the total size and the address of element i for: <code>int A[6]; char *B[4]; short C[10]; double D[3];</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Four C <b>array</b> declarations: <code>int A[6]</code> is 6 ints in a row in memory, and <code>char *B[4]</code> is 4 pointers (to chars) in a row. "Address of element i" means where A[i] starts, as a formula in x_A (the array's start address) and i.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Array          Element size K   Total = K·L    &amp;element i
 int A[6]       4                24             x_A + 4i
@@ -17,6 +19,8 @@ double D[3]    8                24             x_D + 8i</pre></div>
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Expression tables</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.37 style) <code>int E[]</code> starts at x<sub>E</sub> in %rdx, and the long i is in %rcx. For each expression give its type, its value, and assembly leaving it in %rax (pointer) or %eax (int): <code>E+1</code>, <code>E[2]</code>, <code>&amp;E[i]</code>, <code>E[i+1]</code>, <code>&amp;E[i]-E</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>int E[]</code> is an int array starting at address x_E, which is held in %rdx; i is in %rcx. Each row is a C expression. You give its <b>type</b> (int, or a pointer int *), its value, and one instruction that computes it.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Expression   Type    Value             Assembly
 E+1          int *   x_E + 4           leaq 4(%rdx),%rax
@@ -35,6 +39,8 @@ E[i+1]       int     M[x_E + 4i + 4]   movl 4(%rdx,%rcx,4),%eax
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Scale limit</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>long L[]</code> is at %rdi and i is in %rsi. Write the assembly for <code>return L[3*i];</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>L[3*i]</code> is the element at index 3i of a long array. L's address is in %rdi and i is in %rsi. You write the instructions that read it.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Address = x_L + 8·(3i) = x_L + 24i       24 is not a legal scale (only 1, 2, 4, 8)
 leaq (%rsi,%rsi,2), %rax       # rax = 3i       (build the index first)
@@ -48,6 +54,8 @@ ret</pre></div>
 <div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Nested array addresses</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>int M[4][5]</code> starts at address x. Give sizeof(M), the address of M[2][3], the start of row M[3], and a general formula for &amp;M[i][j].</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>int M[4][5]</code> is a 2-D array: 4 rows of 5 ints. You compute its total size, where element [2][3] is, and where row 3 starts, as offsets from its start address x.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>R = 4 rows, C = 5 columns, K = 4
 sizeof(M)  = R·C·K = 4·5·4 = 80
@@ -65,6 +73,8 @@ row M[3]   = x + i·C·K = x + 3·5·4 = x + 60
 <div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Writing nested access without imul</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the assembly for <code>int T[6][9]; int get(long i, long j) { return T[i][j]; }</code>, with i in %rdi and j in %rsi, without imul.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A 6×9 int array T and a function returning T[i][j]. Write the instructions without using a multiply instruction.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>&amp;T[i][j] = T + 4(9i + j)
 get:  leaq (%rdi,%rdi,8), %rax     # 9i
@@ -92,6 +102,8 @@ addq %rax, %rdi
 movq B(,%rdi,8), %rax
 addq A(,%rdx,8), %rax
 ret</pre></div></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Two 2-D arrays whose sizes are hidden as M and N. The assembly computes A[i][j] + B[j][i]. You deduce M and N from the constants in the code. <code>A(,%rdx,8)</code> means memory at address A + 8·%rdx.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>rdx = 8i → 7i → 7i + j        used with A: index = i·N + j   ⇒ N = 7
 rax = 5j ; rdi = 5j + i       used with B: index = j·M + i   ⇒ M = 5
@@ -104,6 +116,8 @@ Answer: M = 5, N = 7</pre></div>
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Multi-level arrays</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>int *univ[3];</code> (each element points to an int array). (a) Write the assembly for <code>int get(size_t i, size_t j) { return univ[i][j]; }</code>. (b) How many memory reads does it take, compared with <code>int pgh[4][5]</code>?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>int *univ[3]</code> is an array of 3 pointers, each pointing to an int array. You write the code for univ[i][j] and count how many times memory is read.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) get:  salq $2, %rsi               # 4j
           addq univ(,%rdi,8), %rsi    # p = univ[i] + 4j     ← read 1: the row pointer
@@ -121,6 +135,8 @@ Answer: M = 5, N = 7</pre></div>
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Fixed vs. variable dimensions</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Explain why <code>fix_ele</code> (N = 16, a constant) uses a shift, but <code>var_ele</code> (n a parameter) uses imulq, to compute the address of a[i][j] for int elements.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Two versions of the same function: one where the array size is a fixed constant, and one where it's a variable n. The question asks why their assembly differs.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>fix_ele: row size = C·K = 16·4 = 64 is known at compile time → salq $6 (×64)
 var_ele: row size = n·4 depends on the parameter n → unknown at compile time
@@ -133,6 +149,8 @@ var_ele: row size = n·4 depends on the parameter n → unknown at compile time
 <div class="ptype" data-m="M9"><h3><span class="mtag">M9</span>Array loops</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write -Og assembly for <code>long total(int *a, long n) { long s = 0; for (long i = 0; i &lt; n; i++) s += a[i]; return s; }</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A C function that loops over an int array adding up its elements. You write the assembly for it.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>total:                         # a in %rdi, n in %rsi
   movl   $0, %eax              # s = 0

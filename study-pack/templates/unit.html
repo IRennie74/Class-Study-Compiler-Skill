@@ -1,20 +1,26 @@
 <!-- units/uN.html — one unit of the problem workbook. The three markers are REQUIRED.
 
 THE LEARNING ORDER (the user's stated preference; do not change it):
+  ASSUME THE STUDENT KNOWS NOTHING. Unit 0 teaches the background; every term is defined before use.
   for each problem type: 1) HOW IT'S ASKED: an example question, exactly as it appears on the test
+                         1b) WHAT YOU'RE LOOKING AT: every part and symbol of that question explained
                          2) THE ANSWER, WRITTEN EXACTLY LIKE THIS: the full model answer to that example
                          3) HOW IT WORKS: a real explanation of the concept (what, why, how, diagram, traps)
                          4) EVERY TIME, DO THIS: a short checklist
   then the practice set (every problem tagged with the card(s) it uses), then solutions.
 
-assemble.py adds the unit header, the list of problem types (from the card titles) and the key facts.
-It FAILS the build if a card lacks ask/write/explain, if a problem uses an untaught card, if a card is
-never practised, or if the practice and solution numbering differ. -->
+assemble.py adds the unit header, the list of problem types (from the card titles), the words-and-symbols
+glossary and the key facts (both from units.json). It FAILS the build if the first unit isn't Unit "0",
+if a unit has no glossary, if a card lacks ask/read/write/explain, if a problem uses an untaught card,
+if a card is never practised, or if the practice and solution numbering differ. -->
 <!--METHOD-->
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>{{Problem type name}}</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 {{An example question in EXACTLY the format the instructor uses (same wording style, tables,
 code layout, blanks). Use new numbers, not one of the practice problems below.}}</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>{{For a first-timer: name each part of the question (the C template, the given code, the register line,
+tables, labels) and each symbol (%, $, ( ), 0x, labels …), and say in plain words what it asks for.}}</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>{{The complete answer to that example, laid out exactly as the student should write it on the test:
    setup line (givens / map) → one line per step with the reasoning → the final answer → a check}}</pre></div>

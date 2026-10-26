@@ -1,6 +1,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>push / pop</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>%rsp = 0x500</code>, <code>%rax = 7</code>, <code>%rbx = 9</code>. Trace <code>pushq %rax ; pushq %rbx ; popq %rcx</code>. Give %rsp, %rcx and the stack memory after each step.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The <b>stack</b> is an area of memory used as a pile of 8-byte values; <code>%rsp</code> holds the address of the top. <code>pushq</code> puts a value on the pile and <code>popq</code> takes the top one off into a register. You track %rsp and memory after each step.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Instruction   %rsp    Memory change          %rcx
 (start)       0x500   —                      ?
@@ -22,6 +24,8 @@ popq %rcx     0x4F8   (M[0x4F0] still holds 9) 9</pre></div>
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>call / ret traces</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Lecture multstore/mult2 style) <code>400544: callq 400550 &lt;mult2&gt;</code> is followed by <code>400549: mov %rax,(%rbx)</code>. Before the call, %rsp = 0x120 and %rip = 0x400544. Give %rsp, %rip and the top of the stack right after the call, and right after mult2's <code>retq</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>400544: callq 400550 &lt;mult2&gt;</code> is a line of <b>disassembly</b>: the instruction's address (0x400544), then the instruction, a call to the function mult2 at 0x400550. <code>%rip</code> is the register holding the address of the next instruction. You give %rsp, %rip and the top of the stack at three moments.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Moment               %rsp     %rip       M[%rsp]     Why
 before call          0x120    0x400544   —
@@ -38,6 +42,8 @@ after mult2's retq   0x120    0x400549   —           pop return addr into %rip
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Where arguments are</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 For <code>long f(int a, long *b, char c, short d, long e, int f, long g, int h, double x)</code>, where is each argument when f starts executing?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A C prototype with 8 integer/pointer arguments and one double. The question asks where each argument is when the function starts: in which register, or at which stack position. "At 8(%rsp)" means "in memory 8 bytes above the stack top".</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>#   arg        type     location
 1   a          int      %edi
@@ -66,6 +72,8 @@ return value: %rax</pre></div>
 <pre>long call_incr() { long v1 = 15213; long v2 = incr(&amp;v1, 3000); return v1+v2; }
 call_incr:  subq $16,%rsp ; movq $15213,8(%rsp) ; movl $3000,%esi
             leaq 8(%rsp),%rdi ; call incr ; addq 8(%rsp),%rax ; addq $16,%rsp ; ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>call_incr</code> has a local variable v1 and passes <code>&amp;v1</code> (its address) to another function. <code>subq $16,%rsp</code> reserves 16 bytes of stack. You draw the stack area and explain why v1 must be in memory.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>  higher  │ return address │  ← 16(%rsp)   (pushed by whoever called call_incr)
           │ v1 = 15213     │  ←  8(%rsp)
@@ -82,6 +90,8 @@ A register has no address, so v1 must live in memory.</pre></div>
 <div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>Caller- vs. callee-saved</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 True or false, with a reason: (a) after a call, %rbx still holds what it held before; (b) after a call, %rdx still holds what it held before; (c) a function that uses %r12 must save and restore it.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>True/false statements about whether registers keep their values across a function call. <b>Callee</b> = the function being called; <b>caller</b> = the function making the call. Give each answer with a reason.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) True:  %rbx is callee-saved; any callee that uses it must restore it.
 (b) False: %rdx is caller-saved (3rd argument register); the callee may overwrite it.
@@ -98,6 +108,8 @@ True or false, with a reason: (a) after a call, %rbx still holds what it held be
 <div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Writing a function that makes calls</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Write the assembly for <code>long g(long x) { long a = h(x); return a + x; }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A small C function that calls another function, h, and still needs x afterwards. You write its assembly, including how to keep x safe during the call.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>g:                       # x in %rdi
   pushq %rbx             # save the caller's %rbx (we are about to use it)
@@ -132,6 +144,8 @@ Write the assembly for <code>long g(long x) { long a = h(x); return a + x; }</co
      addq  %rbx, %rax
      popq  %rbx
 .L1: ret</pre></div></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A <b>recursive</b> function (one that calls itself). Left: C template with blanks; right: its assembly. <code>pushq %rbx</code>/<code>popq %rbx</code> save and restore a register, and <code>call rf</code> is the recursive call.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) base case:   testq ; jle .L1 with rax = 0   → if (x &lt;= 0) return 0;
 (b) saved value: rbx = x                        → x is needed after the call
@@ -153,6 +167,8 @@ Check: rf(7) = 7 + rf(4) = 7 + 4 + rf(1) = 7 + 4 + 1 + rf(−2) = 12</pre></div>
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Recursion tables and stack depth</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 For rf from M7: (a) give a call table for rf(7); (b) when the innermost call starts, how many bytes lower is %rsp than at the entry of rf(7)?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Two follow-up questions about the M7 function: (a) list each recursive call with its argument and result; (b) how far the stack pointer moves down by the deepest call.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) level  x in   rbx saved   returns
     1      7      7           7 + 5 = 12

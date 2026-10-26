@@ -9,6 +9,8 @@
 .L5:   testq %rdi, %rdi
        jne   .L6
        ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A function's assembly, with labels <code>.L5</code> and <code>.L6</code> marking spots in the code. <code>jmp</code> always jumps; <code>jne</code> jumps only if the last test said "not equal/not zero". The question asks which standard <b>loop pattern</b> the compiler used.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Back-edge: jne .L6 (it jumps to an EARLIER label, so that is the loop).
 Before the loop body there is an unconditional jmp .L5 to the test at the bottom.
@@ -33,6 +35,8 @@ Before the loop body there is an unconditional jmp .L5 to the test at the bottom
 .L2:   cmpq  %rsi, %rdi
        jl    .L3
        ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>C template of a while loop with blanks, and the compiled code. The pieces to identify: what is set before the loop, what repeats, and what condition keeps it repeating. <code>cmpq %rsi,%rdi</code> compares a with b, and <code>jl .L3</code> jumps back if a &lt; b.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>movl $0,%eax            INIT     result = 0
 jmp .L2                 (jump-to-middle)
@@ -55,6 +59,8 @@ long result = 0;  while (a &lt; b) { result = result + b;  a = a + 3; }  return 
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Iteration table and "what does it compute?"</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (Practice Problem 3.26 part C style) For the <code>fun</code> code in M1 (x is unsigned): write the C, and describe in English what the function computes.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>"Describe in English what the function computes" means: after writing the C, say in one sentence what it does for any input (e.g. "counts the 1-bits"). <code>xorq</code> is bitwise XOR (^ in C), and <code>shrq</code> shifts right by 1 (dividing an unsigned number by 2).</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>long fun(unsigned long x) { long val = 0; while (x) { val ^= x; x &gt;&gt;= 1; } return val; }
 Trace x = 6 (110₂):   iter   x      val (after val ^= x)
@@ -79,6 +85,8 @@ Bit 0 of val is the XOR of all the bits of x: 0 ^ 1 ^ 1 = 0.
 (Practice Problem 3.28 part B style) This code has neither a test before the loop nor a jump to the middle. Explain why.
 <pre>movl $32,%edx ; movl $0,%eax
 .L2: ... body ... ; subq $1,%rdx ; jne .L2 ; ret          # for (i = 32; i != 0; i--)</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The code is a loop counting i down from 32. The question asks why the compiler didn't add the usual check before the loop: an explanation, not a calculation.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>The loop is for (i = 32; i != 0; i--). Its first test (32 != 0) is always true, so the
 compiler knows the body runs at least once. The guard (or jump-to-middle) is only
@@ -96,6 +104,8 @@ plain do-while.</pre></div>
 <div class="ptype" data-m="M5"><h3><span class="mtag">M5</span>C loop → goto → assembly</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 For <code>long sum(long n) { long s = 0; for (long i = 1; i &lt;= n; i++) s += i; return s; }</code>, write (a) the while version, (b) the jump-to-middle goto version, and (c) the -Og assembly.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A complete C function with a for loop. You produce three versions: the same loop as a while, a version with goto and labels, and the actual assembly.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) long s = 0; long i = 1;          (c) sum:                    # n in %rdi
     while (i &lt;= n) { s += i; i++; }        movl  $0, %eax          # s = 0
@@ -119,6 +129,8 @@ For <code>long sum(long n) { long s = 0; for (long i = 1; i &lt;= n; i++) s += i
 <div class="ask"><div class="lbl">How it's asked</div>
 A switch on x (in %rdi) starts like the code below. What are the smallest and largest case values, and which values of x go straight to the default?
 <pre>subq $100, %rdi ; cmpq $5, %rdi ; ja .Ldef ; jmp *.T(,%rdi,8)</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The first instructions of a compiled <b>switch</b> statement (C's multi-way branch: <code>switch (x) { case 100: … }</code>). <code>subq $100</code> subtracts 100, <code>cmpq $5 ; ja</code> checks the range, and <code>jmp *.T(,%rdi,8)</code> jumps to an address looked up in a table. You find the range of case values.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>subq $100 → index = x − 100 → smallest case = 100
 cmpq $5 ; ja → index 0..5 valid → largest case = 100 + 5 = 105
@@ -136,6 +148,8 @@ Straight to default: x &lt; 100 (x − 100 is negative = huge unsigned → ja) a
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Switch: mapping table</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 The table for the M6 switch is <code>.T: .quad .L3, .Ldef, .L4, .L3, .Ldef, .L5</code>. Which cases exist, which share code, and which are missing?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>.T:</code> is the <b>jump table</b>: a list of labels, one per possible value, in order (written <code>.quad</code> in real code, which means "an 8-byte value"). You match each entry to its case value.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>index   case (index + 100)   label
 0       100                  .L3
@@ -162,6 +176,8 @@ The M6/M7 switch is in <code>long sw(long x, long y)</code> (y in %rsi), with th
        ret
 .Ldef: movl  $0, %eax
        ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>The code blocks the jump table points to, and the C function's parameters. You turn each block into C cases and work out the return value for two inputs.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>.L3:   rax = 3y ; ret                       → case 100: case 103: return 3*y;
 .L4:   y = y + 1 ; no jmp/ret → falls into .L5  → case 102: y++;  /* fall through */

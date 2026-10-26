@@ -2,6 +2,8 @@
 <div class="ptype" data-m="M1"><h3><span class="mtag">M1</span>Struct layout table</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Give the offset of each field, the alignment K and sizeof for <code>struct S { char c; int i; short s; double d; char e; };</code></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A C <b>struct</b>: several named fields stored together in one block of memory. You list where each field starts (its <b>offset</b>, in bytes from the struct's start) and the struct's total size, <code>sizeof</code>.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Field  Size  Align  Offset  Padding before
 c      1     1      0       —
@@ -20,6 +22,8 @@ end = 25 → K = max(1,4,2,8,1) = 8 → round 25 up to a multiple of 8 → sizeo
 <div class="ptype" data-m="M2"><h3><span class="mtag">M2</span>Minimise struct size</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Reorder the fields of the struct S from M1 to make it as small as possible, and give the new size.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Using the struct from M1, choose a different order for its fields so that the struct takes less memory.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Largest alignment first: double d; int i; short s; char c; char e;
 d@0 (8) · i@8 (4) · s@12 (2) · c@14 · e@15 → end 16
@@ -33,6 +37,8 @@ d@0 (8) · i@8 (4) · s@12 (2) · c@14 · e@15 → end 16
 <div class="ptype" data-m="M3"><h3><span class="mtag">M3</span>Arrays of structs</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>struct S3 { short i; float v; short j; } a[10];</code> starts at address a. Give sizeof(struct S3) and the address of <code>a[idx].j</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p><code>a[10]</code> is an array of 10 structs, each with the fields i, v, j. You give the struct's size and the address of field j in element idx.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>i@0 (2) · pad 2 · v@4 (4) · j@8 (2) · end 10 → K = 4 → sizeof = 12
 &amp;a[idx].j = a + 12·idx + 8</pre></div>
@@ -45,6 +51,8 @@ d@0 (8) · i@8 (4) · s@12 (2) · c@14 · e@15 → end 16
 <div class="ptype" data-m="M4"><h3><span class="mtag">M4</span>Writing struct access in assembly</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 <code>struct acct { int id; long bal; struct acct *next; };</code> Write the assembly for <code>long nb(struct acct *p) { return p-&gt;next-&gt;bal + p-&gt;id; }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A struct whose last field, <code>next</code>, is a pointer to another struct of the same kind (like a linked list). <code>p-&gt;next-&gt;bal</code> means: follow p to its struct, take its next pointer, follow that, and read bal. You write the assembly.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Layout: id@0 (4) · pad 4 · bal@8 (8) · next@16 (8) · sizeof 24
 nb:  movq   16(%rdi), %rax     # rax = p-&gt;next
@@ -68,6 +76,8 @@ Recover the struct and the C statement (p is in %rdi; the fields are int, long o
 movl   12(%rdi), %edx
 movl   %edx, (%rax)
 ret</pre></div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>Only the assembly is given. Each <code>k(%rdi)</code> reads a field at offset k in the struct p points to. You work out what fields the struct has and what the C did.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>movq (%rdi),%rax     8-byte field at offset 0, used as an address → a pointer: int *ptr
 movl 12(%rdi),%edx   4-byte field at offset 12 → int (offset 8 is another 4-byte field)
@@ -82,6 +92,8 @@ void f(struct s *p) { *p-&gt;ptr = p-&gt;b; }</pre></div>
 <div class="ptype" data-m="M6"><h3><span class="mtag">M6</span>Unions</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 Give sizeof for <code>union U { char c; int i[2]; double v; };</code> and for a struct with the same fields. Explain the difference.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A C <b>union</b> looks like a struct, but all its fields share the same memory. You compare its size with a struct that has the same fields.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>union:  all fields start at offset 0; largest member = 8 (i[2] and v) → sizeof = 8
 struct: c@0 · i@4 (pad 3) · v@16 (pad 4 after i) → end 24 → K = 8 → sizeof = 24
@@ -96,6 +108,8 @@ a struct gives each field its own space.</pre></div>
 <div class="ptype" data-m="M7"><h3><span class="mtag">M7</span>Byte order</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 The int <code>0x11223344</code> is stored at address 0x200 on x86-64. List the bytes at 0x200–0x203. What would they be on a big-endian machine?</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>A 4-byte int value and the address where it's stored. You list which byte sits at each of the 4 addresses, on two kinds of machine.</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>Little endian (x86): 0x200: 44   0x201: 33   0x202: 22   0x203: 11
 Big endian:          0x200: 11   0x201: 22   0x202: 33   0x203: 44</pre></div>
@@ -108,6 +122,8 @@ Big endian:          0x200: 11   0x201: 22   0x202: 33   0x203: 44</pre></div>
 <div class="ptype" data-m="M8"><h3><span class="mtag">M8</span>Floating-point code</h3>
 <div class="ask"><div class="lbl">How it's asked</div>
 (a) Where do the arguments of <code>double mix(long n, double x, float y)</code> arrive? (b) Write the assembly for <code>double scale(double *p, double k) { double t = *p * k; *p = t; return t; }</code>.</div>
+<div class="read"><div class="lbl">What you're looking at</div>
+<p>C functions using <code>double</code>/<code>float</code> (numbers with decimal points). You say which registers hold the inputs, and write the assembly using the special floating-point registers <code>%xmm0</code>, <code>%xmm1</code>, ….</p></div>
 <div class="write"><div class="lbl">The answer, written exactly like this</div>
 <pre>(a) n → %rdi (integer #1)   x → %xmm0 (FP #1)   y → %xmm1 (FP #2)   return → %xmm0
 (b) scale:                   # p in %rdi, k in %xmm0
