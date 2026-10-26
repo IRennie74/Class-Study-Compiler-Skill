@@ -1,0 +1,86 @@
+[
+  {
+    "n": "1",
+    "title": "Foundations: registers, operands, addressing, mov",
+    "lectures": "L09–L10",
+    "facts": [
+      "16 registers: %rax %rbx %rcx %rdx %rsi %rdi %rsp %rbp %r8–%r15; sub-names %eax/%ax/%al, %r8d/%r8w/%r8b.",
+      "Operand kinds: $imm (a constant), %reg (its contents), memory D(Rb,Ri,S) = M[D + Rb + S·Ri]. S ∈ {1,2,4,8}; Ri ≠ %rsp. A bare number is an absolute address.",
+      "Suffixes b/w/l/q = 1/2/4/8 bytes. No memory→memory moves; an immediate is never a destination.",
+      "A 32-bit register write zeroes the upper 32 bits; 8/16-bit writes don't.",
+      "movz/movs widen according to the SOURCE type; narrowing = load at full size, store the low part.",
+      "Toolchain: .c → (gcc -S) .s → (as) .o → (ld + .a) executable; objdump -d disassembles. ISA vs microarchitecture."
+    ]
+  },
+  {
+    "n": "2",
+    "title": "Arithmetic, leaq and reverse-engineering",
+    "lectures": "L10",
+    "facts": [
+      "op S,D means D = D op S. subq S,D is D − S.  sal/shl = &lt;&lt;, sar = signed &gt;&gt;, shr = unsigned &gt;&gt;.",
+      "inc/dec/neg (−x)/not (~x) take one operand. A shift with one operand shifts by 1.",
+      "leaq D(a,b,S),d → d = D + a + S·b. No memory access, no flags. Used for &amp;x[i] and for x + k·y.",
+      "Multiply tricks: (r,r,2) = 3r, (r,r,4) = 5r, (r,r,8) = 9r, then salq $k multiplies by 2^k.",
+      "add/sub/imul are the same for signed and unsigned. xor r,r = 0. cqto + idivq does signed division (quotient in rax, remainder in rdx)."
+    ]
+  },
+  {
+    "n": "3",
+    "title": "Condition codes, branches, conditional moves",
+    "lectures": "L11",
+    "facts": [
+      "Flags: CF unsigned overflow, ZF zero, SF negative, OF signed overflow. leaq sets none.",
+      "cmp b,a → a − b;  test b,a → a &amp; b.  Read 'cmp b,a ; jX' as 'if (a X b)'.",
+      "Signed: g ge l le (SF^OF). Unsigned: a ae b be (CF). Either: e ne s ns.",
+      "setX writes 1 byte → movzbl. The compiler jumps on the NEGATED C test to skip the then-block.",
+      "cmov: both values are computed, then one is chosen. Not used when a side might fault, be expensive, or have side effects."
+    ]
+  },
+  {
+    "n": "4",
+    "title": "Loops and switch statements",
+    "lectures": "L11–L12",
+    "facts": [
+      "do-while: test at the bottom. while (-Og): jump-to-middle (jmp test first). while (-O1): guarded-do (a test before the loop + a do-while).",
+      "for (I;T;U) B ≡ I; while (T) { B; U; }. The guard can disappear if the compiler proves the first test is true.",
+      "Switch: jump table of 8-byte addresses, jmp *.L(,%reg,8). One unsigned ja catches both below and above the range.",
+      "Offset subtraction → smallest case; cmp constant + offset → largest case. Entries equal to default = missing; repeated labels = shared; no jmp at the end of a block = fall-through."
+    ]
+  },
+  {
+    "n": "5",
+    "title": "Procedures: stack, calls, conventions, recursion",
+    "lectures": "L12–L13",
+    "facts": [
+      "The stack grows down; %rsp = the top. push: rsp −= 8, store. pop: load, rsp += 8.",
+      "call: push the return address (the next instruction), jump. ret: pop into %rip.",
+      "Args: %rdi %rsi %rdx %rcx %r8 %r9, then the stack (8(%rsp) is arg 7 on entry). Return value in %rax. FP: %xmm0..",
+      "Callee-saved: %rbx %rbp %r12–%r15 (+%rsp). Caller-saved: %rax, the arg registers, %r10, %r11, all xmm.",
+      "Frame: return addr | saved regs | locals | argument build area. Locals go on the stack if their address is taken, or if they are arrays/structs, or if registers run out."
+    ]
+  },
+  {
+    "n": "6",
+    "title": "Arrays: 1-D, nested and multi-level",
+    "lectures": "L14",
+    "facts": [
+      "T A[L]: L·K bytes; &amp;A[i] = x + K·i; A + i scales by K. No bounds checking.",
+      "T A[R][C] is row-major: &amp;A[i][j] = x + K(i·C + j); a row A[i] is at x + i·C·K.",
+      "T *A[R] (multi-level): M[M[x + 8i] + K·j], two memory reads.",
+      "Fixed N → shifts and leaq; variable n → imulq.",
+      "Reverse-engineering dimensions: the multiplier of the first index = the column count."
+    ]
+  },
+  {
+    "n": "7",
+    "title": "Structures, unions, alignment, byte order, floating point",
+    "lectures": "L15",
+    "facts": [
+      "Struct fields are in declaration order; a K-byte primitive sits at a multiple of K; sizeof is rounded up to the largest alignment.",
+      "Put large fields first to save space. Arrays of structs need every element aligned.",
+      "Union: all fields at offset 0; size = the largest member.",
+      "x86 is little endian (least significant byte at the lowest address).",
+      "XMM0–15: FP args in %xmm0.., return in %xmm0, all caller-saved. ss/sd scalar, ps/pd packed (SIMD)."
+    ]
+  }
+]

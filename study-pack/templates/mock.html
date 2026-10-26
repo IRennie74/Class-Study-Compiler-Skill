@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{{COURSE}} Mock Test</title>
+<link rel="stylesheet" href="style.css"></head>
+<!-- ONE source renders TWO PDFs: build.sh replaces __MODE__ with "test" or "key".
+     test mode: answers (.a), explanations (.exp) and .keyonly are hidden; work boxes (.work) and .testonly show.
+     key mode : answers in red, every answer followed by a "Why:" explanation, work boxes hidden. -->
+<body class="__MODE__">
+
+<div class="answerkey-banner">ANSWER KEY — answers in red, each followed by a short "Why" explanation.</div>
+<div class="cover">
+  <h1>{{COURSE}} — Mock Test: {{UNIT/TOPIC}}</h1>
+  <div class="sub">Covers {{LECTURES}}: {{TOPIC LIST}}</div>
+</div>
+
+<div class="note testonly"><b>Instructions.</b> {{length, marks, time, assumptions/conventions used in the course}}</div>
+
+<div class="part">Part A — Multiple choice / short answer ({{N}} marks)</div>
+
+<!-- multiple choice -->
+<div class="q"><span class="qn">A1.</span> {{question}}
+<ul class="opts"><li>(a) …</li><li>(b) …</li><li>(c) …</li><li>(d) …</li></ul>
+Answer: <span class="fill"><span class="a">(b) …</span></span>
+<div class="exp">{{why this is right, and why the tempting wrong answer is wrong}}</div></div>
+
+<!-- fill-in blank: .fill (short) .fill.w (wide) .fill.ww (very wide) -->
+<div class="q"><span class="qn">A2.</span> {{question}} <span class="fill w"><span class="a">{{answer}}</span></span>
+<div class="exp">{{why}}</div></div>
+
+<div class="part">Part B — {{table-style question}} ({{N}} marks)</div>
+<!-- table with blanks: answer cells use class="blank" + span.a; reasoning column only in the key -->
+<div class="q"><span class="qn">B1.</span> {{instructions}} <span class="marks">[6]</span>
+<table style="width:100%">
+<tr><th>Item</th><th>Answer</th><th class="keyonly">How</th></tr>
+<tr><td>{{item}}</td><td class="blank"><span class="a">{{answer}}</span></td><td class="keyonly">{{working}}</td></tr>
+</table>
+<div class="exp">{{general method for this table}}</div></div>
+
+<div class="part">Part C — {{long-answer / reverse-engineering}} ({{N}} marks)</div>
+<!-- side-by-side code: template on the left, given code on the right -->
+<div class="q"><span class="qn">C1.</span> {{instructions}} <span class="marks">[8]</span>
+<div class="two"><pre>{{template with ______ blanks}}</pre>
+<pre>{{given code}}</pre></div>
+<pre class="a">{{full answer, annotated}}</pre>
+<div class="exp">{{the method, step by step}}</div>
+<div class="work l"></div></div>   <!-- work box sizes: s m l xl -->
+
+<div class="note testonly" style="margin-top:14pt"><b>End of mock test.</b> Mark it with the answer key.</div>
+<div class="good keyonly" style="margin-top:14pt"><b>Scoring guide.</b> {{marks per part; which workbook unit / practice problems to redo for each part where marks were lost}}</div>
+</body></html>

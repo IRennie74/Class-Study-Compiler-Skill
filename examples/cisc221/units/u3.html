@@ -1,0 +1,263 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — flags, comparisons, and if/else → C</h4>
+<ol>
+<li><b>Flags:</b> for <code>cmp b,a</code>, compute a − b <b>twice</b>: once as signed numbers (gives SF, ZF, OF) and once as unsigned (gives CF). CF = 1 when the unsigned a &lt; b (a borrow). OF = 1 when signed a − b falls outside the type's range.</li>
+<li><b>Jumps and sets:</b> read <code>cmp b,a ; jX L</code> as "if (a X b) goto L". Letters: g/l = signed; a/b = unsigned; e/ne = either.</li>
+<li><b>Types from compares:</b> the suffix gives the size (b char, w short, l int, q long/pointer). The jump or set letter gives signedness.</li>
+<li><b>if/else → C:</b>
+  <ol type="a"><li>Annotate the arithmetic, as in Unit 2.</li>
+  <li>Label each block: everything up to the first jump, then each label.</li>
+  <li>For each conditional jump, write the condition on <b>both</b> edges (the jump edge = the jump's condition; the fall-through edge = its negation).</li>
+  <li>The <b>fall-through condition</b> is the C <code>if</code> test (the compiler jumps over the then-block when the test is false).</li>
+  <li>A value computed before any test is the initial value (<code>val = …</code>). Each <code>ret</code> ends one path.</li>
+  <li>Fill the template, then test it with two inputs, one going down each path.</li></ol></li>
+<li><b>cmov:</b> the value already in %rax is the "default". <code>cmovX s,%rax</code> means "if X, use s instead". Both values are always computed.</li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer (3.18 style)</h4>
+<pre>Map: x → rdi, y → rsi, z → rdx
+test:
+  leaq (%rdi,%rsi),%rax      rax = x+y
+  addq %rdx,%rax             rax = x+y+z                  ← val = x+y+z (initial)
+  cmpq $-3,%rdi              compare x : −3
+  jge .L2                    jump if x ≥ −3     │ fall-through: x &lt; −3   ⇒ if (x &lt; -3)
+  cmpq %rdx,%rsi             compare y : z
+  jge .L3                    jump if y ≥ z      │ fall-through: y &lt; z    ⇒ if (y &lt; z)
+  movq %rdi,%rax ; imulq %rsi,%rax   val = x*y ; ret
+.L3: movq %rsi,%rax ; imulq %rdx,%rax  val = y*z ; ret        ⇐ else (y ≥ z)
+.L2: cmpq $2,%rdi ; jle .L4  jump if x ≤ 2      │ fall-through: x &gt; 2   ⇒ else if (x &gt; 2)
+     movq %rdi,%rax ; imulq %rdx,%rax  val = x*z
+.L4: ret                                                      ⇐ return val
+
+C:  long val = x+y+z;
+    if (x &lt; -3) { if (y &lt; z) val = x*y; else val = y*z; }
+    else if (x &gt; 2) val = x*z;
+    return val;
+Check: x=−5,y=1,z=2 → asm falls through both tests → val = x·y = −5; the C also gives −5 ✓
+       x=0 → .L2 → 0 ≤ 2 → .L4 returns x+y+z ✓</pre></div>
+<div class="deck"><b>From the practice deck, also do:</b> Problem 11 (3.13 types/COMP), Problem 12 (3.16 &amp;&amp; branches), Problem 13 (3.18 nested if), Problem 14 (3.21 cmov), Problem 16 (3.20 divide by 8).</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">3.1</span><span class="lvl m">medium</span> Give ZF, SF, CF and OF, and say whether <code>jl</code>, <code>jb</code>, <code>ja</code> and <code>je</code> would be taken.
+<pre>(a) %rax = 3,  %rbx = 3:            cmpq %rbx, %rax
+(b) %rax = −1, %rbx = 1:            cmpq %rbx, %rax
+(c) %al = 0x80, %bl = 0x01:         cmpb %bl, %al
+(d) %rax = 2,  %rbx = 9:            cmpq %rbx, %rax</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">3.2</span><span class="lvl e">easy</span> What C condition (on x in %rdi) makes each jump happen?
+<pre>(a) testq %rdi,%rdi ; jg L      (b) testq $1,%rdi ; jne L      (c) testq %rdi,%rdi ; js L
+(d) cmpq $10,%rdi ; jle L       (e) cmpq $10,%rdi ; jbe L      (f) testq %rdi,%rdi ; je L</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">3.3</span><span class="lvl m">medium</span> (3.13 style.) <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Here a is in part of %rdi and b in part of %rsi. Give data_t and COMP.
+<pre>(a) cmpq %rsi,%rdi ; seta %al      (b) cmpl %esi,%edi ; setge %al
+(c) cmpw %si,%di ; setb %al        (d) cmpb %sil,%dil ; sete %al
+(e) cmpq %rsi,%rdi ; setl %al      (f) cmpl %esi,%edi ; setbe %al</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">3.4</span><span class="lvl e">easy</span> Write the assembly for (a) <code>int lt(long a, long b) { return a &lt; b; }</code> and (b) <code>int ugt(unsigned a, unsigned b) { return a &gt; b; }</code>.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">3.5</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi and y in %rsi.
+<div class="two"><pre>long f(long x, long y) {
+  if (________)
+    return ________;
+  else if (________)
+    return ________;
+  else
+    return ________;
+}</pre><pre>f:
+  cmpq  %rsi, %rdi
+  jge   .L2
+  leaq  (%rsi,%rsi), %rax
+  subq  %rdi, %rax
+  ret
+.L2:
+  testq %rsi, %rsi
+  jle   .L3
+  movq  %rdi, %rax
+  xorq  %rsi, %rax
+  ret
+.L3:
+  leaq  1(%rdi), %rax
+  ret</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">3.6</span><span class="lvl h">harder</span> (3.18 style.) Here a is in %rdi, b in %rsi and c in %rdx.
+<div class="two"><pre>long g(long a, long b, long c) {
+  long val = ________;
+  if (________) {
+    if (________)
+      val = ________;
+  } else if (________)
+    val = ________;
+  return val;
+}</pre><pre>g:
+  movq  %rdi, %rax
+  imulq %rsi, %rax
+  testq %rdi, %rdi
+  jle   .L2
+  cmpq  %rdx, %rsi
+  jle   .L1
+  leaq  (%rdi,%rdx), %rax
+  ret
+.L2:
+  cmpq  $-5, %rdi
+  jge   .L1
+  movq  %rdx, %rax
+  subq  %rsi, %rax
+.L1:
+  ret</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">3.7</span><span class="lvl m">medium</span> Fill in the C: <code>long h(long x, long y) { return ____ ? ____ : ____; }</code>
+<pre>h:  movq   %rdi, %rax
+    subq   %rsi, %rax
+    leaq   (%rsi,%rsi,2), %rdx
+    cmpq   %rsi, %rdi
+    cmovl  %rdx, %rax
+    ret</pre>
+Then explain why GCC could <b>not</b> use cmov for <code>return p ? *p + 1 : 0;</code>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">3.8</span><span class="lvl m">medium</span> (3.16 style.) Write (a) the goto-style C and (b) the assembly for <code>void clip(long *p, long lim) { if (p &amp;&amp; *p &gt; lim) *p = lim; }</code>, with p in %rdi and lim in %rsi. (c) Why are there two conditional jumps?
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">3.9</span><span class="lvl h">harder</span> (3.21 style.) Here x is in %rdi and y in %rsi.
+<div class="two"><pre>long k(long x, long y) {
+  long val = ________;
+  if (________) {
+    if (________) val = ________;
+    else          val = ________;
+  } else if (________)
+    val = ________;
+  return val;
+}</pre><pre>k:
+  leaq   (%rdi,%rdi), %rax
+  cmpq   $3, %rsi
+  jle    .L2
+  movq   %rdi, %rax
+  orq    %rsi, %rax
+  leaq   (%rsi,%rdi), %rdx
+  testq  %rdi, %rdi
+  cmovs  %rdx, %rax
+  ret
+.L2:
+  movq   %rsi, %rdx
+  subq   %rdi, %rdx
+  testq  %rsi, %rsi
+  cmove  %rdx, %rax
+  ret</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">3.10</span><span class="lvl m">medium</span> (3.20 style.) What is OP, and what is the role of each instruction?
+<pre>#define OP ___          long arith(long x) { return x OP 4; }
+arith:  leaq 3(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $2,%rax ; ret</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">3.11</span><span class="lvl m">medium</span> Write the goto version (with labels Else and Done) of <code>long absmin(long a, long b) { long r; if (a &lt;= b) r = b - a; else r = a * b; return r; }</code>, and then its branch-based assembly.
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">3.1</span>
+<pre>     a − b (signed)       unsigned view                   ZF SF CF OF   jl  jb  ja  je
+(a)  3 − 3 = 0            3 − 3 = 0, no borrow            1  0  0  0    no  no  no  yes
+(b)  −1 − 1 = −2          0xFF..FF − 1 = 0xFF..FE (no     0  1  0  0    yes no  yes no
+                          borrow: huge − 1)
+     Signed: −1 &lt; 1 → jl taken.  Unsigned: 0xFF..FF &gt; 1 → ja taken, jb not.
+(c)  8-bit: −128 − 1 = −129, out of range → wraps to 0x7F (+127)
+                          0x80 − 0x01 = 0x7F, no borrow    0  0  0  1    yes no  yes no
+     jl: SF^OF = 0^1 = 1 → taken (−128 &lt; 1 is true; OF corrects the wrong sign).
+(d)  2 − 9 = −7           2 − 9 needs a borrow → CF=1     0  1  1  0    yes yes no  no</pre></div>
+
+<div class="sol"><span class="qn">3.2</span>
+<pre>(a) x &gt; 0   (b) x is odd (x &amp; 1 != 0)   (c) x &lt; 0   (d) x &lt;= 10 (signed)
+(e) (unsigned) x &lt;= 10, i.e. 0 ≤ x ≤ 10 when x is signed   (f) x == 0</pre></div>
+
+<div class="sol"><span class="qn">3.3</span>
+<pre>(a) unsigned long (or a pointer)   &gt;     q = 8 bytes; a = above = unsigned
+(b) int                            &gt;=    l = 4 bytes; ge = signed
+(c) unsigned short                 &lt;     w = 2 bytes; b = below = unsigned
+(d) char or unsigned char          ==    b = 1 byte; e works for either
+(e) long                           &lt;     q; l = signed less
+(f) unsigned                       &lt;=    l; be = unsigned ≤</pre></div>
+
+<div class="sol"><span class="qn">3.4</span>
+<pre>(a) lt:  cmpq %rsi,%rdi ; setl %al ; movzbl %al,%eax ; ret
+(b) ugt: cmpl %esi,%edi ; seta %al ; movzbl %al,%eax ; ret       (4-byte unsigned → cmpl + seta)</pre></div>
+
+<div class="sol"><span class="qn">3.5</span>
+<pre>cmpq %rsi,%rdi ; jge .L2     jump if x ≥ y │ fall-through x &lt; y      ⇒ if (x &lt; y)
+  rax = 2y ; rax = 2y − x ; ret                                     ⇒ return 2*y - x;
+.L2: testq %rsi,%rsi ; jle .L3 jump if y ≤ 0 │ fall-through y &gt; 0    ⇒ else if (y &gt; 0)
+  rax = x ; rax = x ^ y ; ret                                       ⇒ return x ^ y;
+.L3: rax = x + 1 ; ret                                              ⇒ else return x + 1;
+Check: (x,y) = (1,5) → 9; (5,3) → 6; (5,−1) → 6.</pre></div>
+
+<div class="sol"><span class="qn">3.6</span>
+<pre>rax = a ; rax = a*b                                       ⇒ val = a * b
+testq %rdi,%rdi ; jle .L2   jump a ≤ 0 │ fall a &gt; 0      ⇒ if (a &gt; 0)
+cmpq %rdx,%rsi ; jle .L1    jump b ≤ c │ fall b &gt; c      ⇒   if (b &gt; c)
+leaq (%rdi,%rdx),%rax ; ret                               ⇒     val = a + c;
+.L2: cmpq $-5,%rdi ; jge .L1 jump a ≥ −5 │ fall a &lt; −5   ⇒ else if (a &lt; -5)
+rax = c ; rax = c − b                                     ⇒   val = c - b;
+.L1: ret                                                  ⇒ return val;</pre>
+<b>Note:</b> the inner if has no else, so its false edge jumps straight to .L1 (return val).</div>
+
+<div class="sol"><span class="qn">3.7</span>
+<pre>rax = x − y   (the default)        rdx = 3y   (the alternative)
+cmpq %rsi,%rdi ; cmovl  → if x &lt; y, rax = 3y
+C: return x &lt; y ? 3*y : x - y;</pre>
+For <code>p ? *p + 1 : 0</code>: a conditional move evaluates <b>both</b> sides, so *p would be read even when p is NULL. That could crash, so the compiler must use a branch.</div>
+
+<div class="sol"><span class="qn">3.8</span>
+<pre>(a) void clip_goto(long *p, long lim) {
+      if (p == 0) goto done;
+      if (*p &lt;= lim) goto done;
+      *p = lim;
+    done:
+      return;
+    }
+(b) clip:  testq %rdi,%rdi
+           je    .L1
+           cmpq  %rsi,(%rdi)     # *p : lim
+           jle   .L1
+           movq  %rsi,(%rdi)
+    .L1:   ret
+(c) &amp;&amp; short-circuits: each operand becomes its own test and jump, and *p must not be
+    read when p is NULL.</pre></div>
+
+<div class="sol"><span class="qn">3.9</span>
+<pre>rax = 2x                                         ⇒ val = 2*x  (also the result if no branch changes it)
+cmpq $3,%rsi ; jle .L2   jump y ≤ 3 │ fall y &gt; 3     ⇒ if (y &gt; 3)
+  rax = x | y   (default inside the block)
+  rdx = y + x
+  testq %rdi,%rdi ; cmovs → if x &lt; 0, rax = x + y
+  ⇒ if (x &lt; 0) val = x + y; else val = x | y;
+.L2: rdx = y − x ; testq %rsi,%rsi ; cmove → if y == 0, rax = y − x
+  ⇒ else if (y == 0) val = y - x;
+C: long val = 2*x;
+   if (y &gt; 3) { if (x &lt; 0) val = x + y; else val = x | y; }
+   else if (y == 0) val = y - x;
+   return val;</pre>
+Trap: inside the y &gt; 3 block, the inner "then" is the cmov condition (x &lt; 0 → x + y). The value computed first (x | y) is the "else".</div>
+
+<div class="sol"><span class="qn">3.10</span>
+<pre>OP is /  (x / 4).   leaq 3(%rdi): temp = x + 3 (bias 2²−1)
+testq/cmovns: if x ≥ 0, temp = x (no bias needed)
+sarq $2: temp &gt;&gt; 2 = divide by 4, rounding toward 0 as C requires</pre></div>
+
+<div class="sol"><span class="qn">3.11</span>
+<pre>long absmin_goto(long a, long b) {        absmin:
+  long r;                                    cmpq  %rsi, %rdi    # a : b
+  if (a &gt; b) goto Else;    /* !test */      jg    .L2           # a &gt; b → Else
+  r = b - a;                                 movq  %rsi, %rax
+  goto Done;                                 subq  %rdi, %rax    # b − a
+Else:                                        ret
+  r = a * b;                               .L2:
+Done:                                        movq  %rdi, %rax
+  return r;                                  imulq %rsi, %rax    # a·b
+}                                            ret</pre></div>
+
+<ul class="check"><li>I compute a − b in both signed and unsigned views to get the flags.</li><li>I read the fall-through edge as the C if-test.</li><li>I know which values cmov makes the default.</li><li>I check each path with a test input.</li></ul>

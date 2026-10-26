@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CISC 221 Concepts Guide</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="cover">
+<h1>CISC 221 — Concepts &amp; Worked Examples</h1>
+<div class="sub">Machine-Level Programming (x86-64), lectures L09–L15 plus the Quiz 2 revision. What you must know, why it works, and a worked example for each idea.</div>
+</div>
+
+<div class="note"><b>How to use this guide.</b> Each section has three parts: <b>the idea</b>, <b>the rules you must memorise</b>, and <b>a worked example</b> in the same style as the instructor's practice problems. Do the "Try it" items before checking the answers at the bottom of each section. The last two pages are a one-page cheat sheet and a "how to attack each question type" checklist.</div>
+
+<ol class="toc">
+<li>The big picture: C → assembly → machine code</li>
+<li>Registers and their sub-parts</li>
+<li>Operands and addressing modes</li>
+<li>mov and its suffixes; zero- and sign-extension</li>
+<li>Arithmetic, logic, shifts and leaq</li>
+<li>Reverse-engineering arithmetic (the core skill)</li>
+<li>Condition codes: cmp, test, setX</li>
+<li>Jumps, if/else, and the goto style</li>
+<li>Conditional moves (cmov)</li>
+<li>Loops: do-while, while (two forms), for</li>
+<li>Switch statements and jump tables</li>
+<li>The stack, call and ret</li>
+<li>Calling conventions and register saving</li>
+<li>Stack frames, locals and recursion</li>
+<li>Arrays: 1-D, nested 2-D and multi-level (L14)</li>
+<li>Structures and alignment</li>
+<li>Unions, byte order and floating point</li>
+<li>Cheat sheet</li>
+<li>How to attack each question type</li>
+</ol>
+
+<!-- 1 -->
+<h2>1. The big picture</h2>
+<p>A C program is turned into something the CPU can run in four steps:</p>
+<pre>p1.c ──(compiler: gcc -Og -S)──▶ p1.s ──(assembler: as)──▶ p1.o
+     ──(linker: ld + static libraries .a)──▶ p (executable)
+
+objdump -d p   ◀── the disassembler goes back from bytes to assembly</pre>
+<ul>
+<li><b>ISA (architecture)</b> = the part of the processor design an assembly programmer sees: the instructions, the registers and the memory model. Examples: x86-64 (Intel/AMD), ARM (phones).</li>
+<li><b>Microarchitecture</b> = how the ISA is built: cache sizes, clock frequency, pipelines. It is invisible to the assembly code.</li>
+<li><b>Machine code</b> = bytes. <b>Assembly</b> = a readable text version of those bytes. x86 instructions vary in length (1 to 15 bytes), and x86 is a <b>CISC</b> design (many complex instructions), unlike RISC.</li>
+<li>The <b>state the programmer can see</b>: the PC (<code>%rip</code>, the address of the next instruction), 16 integer registers, the condition codes (CF, ZF, SF, OF) and memory (one big byte array that holds code, data and the stack).</li>
+<li>Assembly has <b>no types and no variables</b>. "Integers" are 1, 2, 4 or 8 bytes, addresses are just 8-byte integers, and arrays and structs are just runs of bytes in memory.</li>
+</ul>
+<div class="note"><b>Why learn this?</b> The lecture gives three reasons: to see what the compiler does and what it can optimise, to understand how programs behave at run time, and to understand vulnerabilities such as buffer overflows.</div>
+
+<!-- 2 -->
+<h2>2. Registers</h2>
+<table>
+<tr><th>64-bit</th><th>low 32</th><th>low 16</th><th>low 8</th><th>Role (Linux convention)</th></tr>
+<tr><td>%rax</td><td>%eax</td><td>%ax</td><td>%al</td><td>return value</td></tr>
+<tr><td>%rbx</td><td>%ebx</td><td>%bx</td><td>%bl</td><td>callee-saved</td></tr>
+<tr><td>%rcx</td><td>%ecx</td><td>%cx</td><td>%cl</td><td>4th argument</td></tr>
+<tr><td>%rdx</td><td>%edx</td><td>%dx</td><td>%dl</td><td>3rd argument</td></tr>
+<tr><td>%rsi</td><td>%esi</td><td>%si</td><td>%sil</td><td>2nd argument</td></tr>
+<tr><td>%rdi</td><td>%edi</td><td>%di</td><td>%dil</td><td>1st argument</td></tr>
+<tr><td>%rbp</td><td>%ebp</td><td>%bp</td><td>%bpl</td><td>callee-saved (optional frame pointer)</td></tr>
+<tr><td>%rsp</td><td>%esp</td><td>%sp</td><td>%spl</td><td>stack pointer (special)</td></tr>
+<tr><td>%r8, %r9</td><td>%r8d, %r9d</td><td>%r8w</td><td>%r8b</td><td>5th, 6th arguments</td></tr>
+<tr><td>%r10, %r11</td><td>%r10d …</td><td>%r10w …</td><td>%r10b …</td><td>caller-saved temporaries</td></tr>
+<tr><td>%r12–%r15</td><td>%r12d …</td><td>%r12w …</td><td>%r12b …</td><td>callee-saved</td></tr>
+</table>
+<div class="warn"><b>Important rule.</b> Writing a <b>32-bit</b> register (e.g. <code>movl</code>, <code>addl</code> to <code>%eax</code>) <b>zeroes the upper 32 bits</b> of the 64-bit register. Writing an 8-bit or 16-bit register leaves the other bytes <b>unchanged</b>. This is why the compiler writes <code>movl $0, %eax</code> to clear all of %rax, and why there is no <code>movzlq</code> instruction.</div>
+<p>The old names explain the letters: a = accumulator, c = counter, d = data, b = base, si/di = source/destination index, sp = stack pointer, bp = base pointer.</p>
+
+<!-- 3 -->
+<h2>3. Operands and addressing modes</h2>
+<p>There are three kinds of operand:</p>
+<ul>
+<li><b>Immediate</b>: <code>$0x400</code>, <code>$-533</code>. A constant. The <code>$</code> is required. It can never be a destination.</li>
+<li><b>Register</b>: <code>%rax</code>. Its contents.</li>
+<li><b>Memory</b>: anything in parentheses, or a bare number like <code>0x104</code> (an absolute address). It means "the bytes at this address".</li>
+</ul>
+<p>The general memory form is <code>D(Rb,Ri,S)</code>, which means <b>Mem[ Rb + S·Ri + D ]</b>:</p>
+<ul>
+<li><code>D</code>: a constant displacement (can be negative, often hex).</li>
+<li><code>Rb</code>: the base register (any of the 16).</li>
+<li><code>Ri</code>: the index register (any except <code>%rsp</code>).</li>
+<li><code>S</code>: the scale, which must be 1, 2, 4 or 8 (the sizes of the data types).</li>
+</ul>
+<p>Any part can be left out: <code>(Rb)</code>, <code>D(Rb)</code>, <code>(Rb,Ri)</code>, <code>(,Ri,S)</code>, <code>D(,Ri,S)</code>.</p>
+<h4>Worked example (in the style of Practice Problem 3.1)</h4>
+<p>Let <code>%rdx = 0xf000</code> and <code>%rcx = 0x0100</code>.</p>
+<table>
+<tr><th>Expression</th><th>Computation</th><th>Address</th></tr>
+<tr><td><code>0x8(%rdx)</code></td><td>0xf000 + 0x8</td><td>0xf008</td></tr>
+<tr><td><code>(%rdx,%rcx)</code></td><td>0xf000 + 0x100</td><td>0xf100</td></tr>
+<tr><td><code>(%rdx,%rcx,4)</code></td><td>0xf000 + 4·0x100</td><td>0xf400</td></tr>
+<tr><td><code>0x80(,%rdx,2)</code></td><td>2·0xf000 + 0x80</td><td>0x1e080</td></tr>
+</table>
+<p><b>Method:</b> (1) compute the address in hex, (2) look the address up in the memory table, (3) that value is the operand's value. A <code>$</code> means no lookup. A bare number means you <i>do</i> look it up.</p>
+<p><b>Try it.</b> <code>%rax = 0x100</code> and <code>%rcx = 1</code>, and M[0x104] = 0xAB and M[0x108] = 0x13. What is (a) <code>4(%rax)</code>? (b) <code>$0x108</code>? (c) <code>0x104</code>? (d) <code>(%rax,%rcx,4)</code>?</p>
+<p class="small">Answers: (a) 0xAB (b) 0x108 (c) 0xAB (d) address 0x104, so 0xAB.</p>
+
+<!-- 4 -->
+<h2>4. mov, suffixes and extension</h2>
+<p><code>movq Source, Dest</code> copies Source into Dest. AT&amp;T syntax always reads as <b>source first, destination second</b>.</p>
+<table>
+<tr><th>Suffix</th><th>Size</th><th>C type</th></tr>
+<tr><td>b</td><td>1 byte</td><td>char</td></tr>
+<tr><td>w</td><td>2 bytes ("word")</td><td>short</td></tr>
+<tr><td>l</td><td>4 bytes ("long word")</td><td>int, float*</td></tr>
+<tr><td>q</td><td>8 bytes ("quad")</td><td>long, pointers, double*</td></tr>
+</table>
+<p class="small">* float and double use different (XMM) instructions; the size is what matters here.</p>
+<p><b>Allowed combinations:</b> Imm→Reg, Imm→Mem, Reg→Reg, Reg→Mem, Mem→Reg. <b>Not Mem→Mem</b>: you have to go through a register.</p>
+<h4>How to pick the suffix</h4>
+<p>Look at the <b>register</b> operand that is not inside an address (<code>%eax</code> → l, <code>%dx</code> → w, <code>%bl</code> → b, <code>%rax</code> → q). Registers inside parentheses are addresses and are always 64-bit, so they tell you nothing about the data size.</p>
+<pre>movl %eax, (%rsp)          movw (%rax), %dx          movb $0xFF, %bl
+movb (%rsp,%rdx,4), %dl    movq (%rdx), %rax         movw %dx, (%rax)</pre>
+<h4>The illegal-instruction checklist (Practice Problem 3.3)</h4>
+<table>
+<tr><th>Bad line</th><th>Why</th></tr>
+<tr><td><code>movb $0xF, (%ebx)</code></td><td>%ebx cannot be an address register (addresses are 64-bit)</td></tr>
+<tr><td><code>movl %rax, (%rsp)</code></td><td>suffix l does not match the 8-byte %rax</td></tr>
+<tr><td><code>movw (%rax), 4(%rsp)</code></td><td>both operands are memory</td></tr>
+<tr><td><code>movb %al, %sl</code></td><td>there is no register called %sl</td></tr>
+<tr><td><code>movq %rax, $0x123</code></td><td>an immediate cannot be a destination</td></tr>
+<tr><td><code>movl %eax, %rdx</code></td><td>destination is the wrong size</td></tr>
+<tr><td><code>movb %si, 8(%rbp)</code></td><td>suffix b does not match the 2-byte %si</td></tr>
+</table>
+<h4>Zero and sign extension (going from a smaller type to a bigger one)</h4>
+<ul>
+<li><code>movz<i>SD</i></code>: zero-extend from source size S to destination size D. Examples: movzbw, movzbl, movzwl, movzbq, movzwq.</li>
+<li><code>movs<i>SD</i></code>: sign-extend (copy the sign bit). Examples: movsbw, movsbl, movswl, movsbq, movswq, movslq. <code>cltq</code> is short for <code>movslq %eax,%rax</code>.</li>
+</ul>
+<div class="good"><b>Rule for <code>*dp = (dest_t) *sp</code> (Practice Problem 3.4).</b>
+<ol>
+<li><b>Bigger destination:</b> extend according to the <b>source</b> type's signedness (signed char → movsb_, unsigned char → movzb_).</li>
+<li><b>Smaller destination:</b> load at the source size, then store just the low part (<code>movl (%rdi),%eax</code> then <code>movb %al,(%rsi)</code>).</li>
+<li><b>Same size:</b> plain mov.</li></ol></div>
+<table>
+<tr><th>src_t → dest_t</th><th>Instructions</th></tr>
+<tr><td>long → long</td><td><code>movq (%rdi),%rax ; movq %rax,(%rsi)</code></td></tr>
+<tr><td>char → int</td><td><code>movsbl (%rdi),%eax ; movl %eax,(%rsi)</code></td></tr>
+<tr><td>char → unsigned</td><td><code>movsbl (%rdi),%eax ; movl %eax,(%rsi)</code> (the <i>source</i> is signed)</td></tr>
+<tr><td>unsigned char → long</td><td><code>movzbl (%rdi),%eax ; movq %rax,(%rsi)</code> (movzbl also clears the top 32 bits)</td></tr>
+<tr><td>int → char</td><td><code>movl (%rdi),%eax ; movb %al,(%rsi)</code></td></tr>
+<tr><td>unsigned → unsigned char</td><td><code>movl (%rdi),%eax ; movb %al,(%rsi)</code></td></tr>
+<tr><td>char → short</td><td><code>movsbw (%rdi),%ax ; movw %ax,(%rsi)</code></td></tr>
+</table>
+
+<!-- 5 -->
+<h2>5. Arithmetic, logic, shifts and leaq</h2>
+<div class="two">
+<table>
+<tr><th>Two-operand</th><th>Effect</th></tr>
+<tr><td><code>addq S, D</code></td><td>D = D + S</td></tr>
+<tr><td><code>subq S, D</code></td><td><b>D = D − S</b></td></tr>
+<tr><td><code>imulq S, D</code></td><td>D = D · S</td></tr>
+<tr><td><code>salq/shlq k, D</code></td><td>D = D &lt;&lt; k</td></tr>
+<tr><td><code>sarq k, D</code></td><td>D = D &gt;&gt; k (arithmetic: copies the sign)</td></tr>
+<tr><td><code>shrq k, D</code></td><td>D = D &gt;&gt; k (logical: fills with 0s)</td></tr>
+<tr><td><code>xorq/andq/orq S, D</code></td><td>D = D ^ / &amp; / | S</td></tr>
+</table>
+<table>
+<tr><th>One-operand</th><th>Effect</th></tr>
+<tr><td><code>incq D</code></td><td>D = D + 1</td></tr>
+<tr><td><code>decq D</code></td><td>D = D − 1</td></tr>
+<tr><td><code>negq D</code></td><td>D = −D</td></tr>
+<tr><td><code>notq D</code></td><td>D = ~D</td></tr>
+<tr><td><code>sarq D</code> (no count)</td><td>shift by 1</td></tr>
+</table>
+</div>
+<ul>
+<li>The shift amount is an immediate or <code>%cl</code>.</li>
+<li>add, sub and imul are the <b>same</b> instruction for signed and unsigned numbers, because two's-complement arithmetic produces the same bits either way. The difference shows up only in shifts (sar vs shr), in comparisons (which flags you test) and in division.</li>
+<li><code>cqto</code> sign-extends %rax into %rdx:%rax, and <code>idivq S</code> divides that 128-bit number by S, giving the quotient in %rax and the remainder in %rdx. You see this in the switch lecture's <code>w = y/z</code>.</li>
+</ul>
+<h4>leaq: "load effective address"</h4>
+<p><code>leaq D(Rb,Ri,S), Dst</code> stores the <b>address</b> D + Rb + S·Ri in Dst and <b>never touches memory</b>. It has two uses:</p>
+<ol><li>Pointers: <code>p = &amp;x[i]</code> becomes <code>leaq (%rdi,%rsi,4),%rax</code>.</li>
+<li>Cheap arithmetic of the form x + k·y + c with k ∈ {1,2,4,8}. leaq <b>does not set the condition codes</b>.</li></ol>
+<table>
+<tr><th>Instruction (%rax = x, %rcx = y)</th><th>%rdx =</th></tr>
+<tr><td><code>leaq 6(%rax), %rdx</code></td><td>x + 6</td></tr>
+<tr><td><code>leaq (%rax,%rcx), %rdx</code></td><td>x + y</td></tr>
+<tr><td><code>leaq (%rax,%rcx,4), %rdx</code></td><td>x + 4y</td></tr>
+<tr><td><code>leaq 7(%rax,%rax,8), %rdx</code></td><td>9x + 7</td></tr>
+<tr><td><code>leaq 0xA(,%rcx,4), %rdx</code></td><td>4y + 10</td></tr>
+<tr><td><code>leaq 9(%rax,%rcx,2), %rdx</code></td><td>x + 2y + 9</td></tr>
+</table>
+<h4>Multiplying by constants without imul</h4>
+<pre>long m12(long x) { return x*12; }
+  leaq (%rdi,%rdi,2), %rax    # t = x + 2x = 3x
+  salq $2, %rax               # t << 2 = 12x</pre>
+<p>Common patterns: 3x = <code>(r,r,2)</code>, 5x = <code>(r,r,4)</code>, 9x = <code>(r,r,8)</code>. Then <code>salq $k</code> multiplies by 2<sup>k</sup>. <code>leaq (,%rdi,8),%rdx ; subq %rdi,%rdx</code> gives 8x − x = 7x (from the L14 example).</p>
+<h4>Instruction effects on memory (Practice Problem 3.8)</h4>
+<p>With M[0x100] = 0xFF, M[0x108] = 0xAB, M[0x110] = 0x13, M[0x118] = 0x11, %rax = 0x100, %rcx = 1, %rdx = 3:</p>
+<table>
+<tr><th>Instruction</th><th>Destination</th><th>Value</th><th>Reasoning</th></tr>
+<tr><td><code>addq %rcx,(%rax)</code></td><td>0x100</td><td>0x100</td><td>0xFF + 1</td></tr>
+<tr><td><code>subq %rdx,8(%rax)</code></td><td>0x108</td><td>0xA8</td><td>0xAB − 3</td></tr>
+<tr><td><code>imulq $16,(%rax,%rdx,8)</code></td><td>0x118</td><td>0x110</td><td>0x100 + 24 = 0x118; 0x11 · 16</td></tr>
+<tr><td><code>incq 16(%rax)</code></td><td>0x110</td><td>0x14</td><td>0x13 + 1</td></tr>
+<tr><td><code>decq %rcx</code></td><td>%rcx</td><td>0x0</td><td></td></tr>
+<tr><td><code>subq %rdx,%rax</code></td><td>%rax</td><td>0xFD</td><td>0x100 − 3</td></tr>
+</table>
+
+<!-- 6 -->
+<h2>6. Reverse-engineering arithmetic: the core skill</h2>
+<p>Almost every quiz question is "here is the assembly, write the C". The instructor's method in the revision video is:</p>
+<ol>
+<li>Write down which C variable is in which register at the start (args: %rdi, %rsi, %rdx, …).</li>
+<li>Go line by line and write next to each one what the <b>destination</b> register now holds, as a C expression of the original variables.</li>
+<li>Give each intermediate result a name (t1, t2, …) matching the blanks in the C template.</li>
+<li>Watch the operand order of <code>sub</code>: <code>subq A, B</code> means B − A.</li>
+</ol>
+<h4>Worked example: arith (lecture L10)</h4>
+<div class="two">
+<pre>long arith(long x, long y, long z) {
+  long t1 = x + y;
+  long t2 = z + t1;
+  long t3 = x + 4;
+  long t4 = y * 48;
+  long t5 = t3 + t4;
+  long rval = t2 * t5;
+  return rval;
+}</pre>
+<pre>arith:
+  leaq (%rdi,%rsi), %rax      # t1 = x+y
+  addq %rdx, %rax             # t2 = t1+z
+  leaq (%rsi,%rsi,2), %rdx    # 3y
+  salq $4, %rdx               # t4 = 48y
+  leaq 4(%rdi,%rdx), %rcx     # t5 = x+4+t4
+  imulq %rcx, %rax            # rval = t2*t5
+  ret</pre>
+</div>
+<p>Notice that the compiler <b>merged</b> t3 = x + 4 into the leaq for t5, and reused %rdx (z is no longer needed after line 2). Registers get recycled, so always track what each register holds <i>now</i>.</p>
+<h4>Worked example: Practice Problem 3.10 (arith2)</h4>
+<pre>orq  %rsi, %rdi     # rdi = x | y            → t1 = x | y
+sarq $3, %rdi       # rdi = t1 &gt;&gt; 3           → t2 = t1 &gt;&gt; 3
+notq %rdi           # rdi = ~t2              → t3 = ~t2
+movq %rdx, %rax     # rax = z
+subq %rdi, %rax     # rax = z - t3           → t4 = z - t3</pre>
+<h4>Worked example: Practice Problem 3.5 (decode1)</h4>
+<pre>movq (%rdi), %r8    # x = *xp
+movq (%rsi), %rcx   # y = *yp
+movq (%rdx), %rax   # z = *zp
+movq %r8, (%rsi)    # *yp = x
+movq %rcx, (%rdx)   # *zp = y
+movq %rax, (%rdi)   # *xp = z</pre>
+<p>So the C is <code>long x=*xp, y=*yp, z=*zp; *yp=x; *zp=y; *xp=z;</code>, which rotates the three values. Parentheses around a register mean <b>dereference</b>: <code>(%rdi)</code> is <code>*xp</code>.</p>
+<h4>xorq %rdx,%rdx (Practice Problem 3.11)</h4>
+<p>x ^ x = 0, so this sets %rdx to 0. It is the compiler's idiom for zeroing a register. The obvious alternative is <code>movq $0,%rdx</code>, but the xor form takes fewer bytes to encode (3 bytes vs 7; <code>xorl %edx,%edx</code> is even shorter at 2 bytes and also clears the upper half).</p>
+
+<!-- 7 -->
+<h2>7. Condition codes</h2>
+<p>There are four 1-bit flags, set as a <b>side effect</b> of arithmetic and logic instructions (but <b>not leaq</b>):</p>
+<table>
+<tr><th>Flag</th><th>Meaning after t = a + b (or a − b)</th></tr>
+<tr><td>CF (carry)</td><td>a carry/borrow out of the top bit, i.e. <b>unsigned</b> overflow</td></tr>
+<tr><td>ZF (zero)</td><td>t == 0</td></tr>
+<tr><td>SF (sign)</td><td>t &lt; 0 (top bit is 1)</td></tr>
+<tr><td>OF (overflow)</td><td><b>signed</b> overflow: pos + pos → neg, or neg + neg → non-negative</td></tr>
+</table>
+<ul>
+<li><code>cmpq b, a</code> computes a − b, sets the flags and throws the result away. <b>The order is reversed</b>: "cmpq %rsi,%rdi" compares rdi (a) with rsi (b).</li>
+<li><code>testq b, a</code> computes a &amp; b and sets ZF and SF. <code>testq %rax,%rax</code> is the idiom for "is rax zero / negative / positive?".</li>
+<li><code>setX D</code> sets one byte to 0 or 1 based on the flags. The usual pattern is <code>setX %al</code> followed by <code>movzbl %al,%eax</code>.</li>
+</ul>
+<table>
+<tr><th>Suffix X</th><th>Condition (after cmp b,a)</th><th>Flags</th><th>Kind</th></tr>
+<tr><td>e / ne</td><td>a == b / a != b</td><td>ZF / ~ZF</td><td>any</td></tr>
+<tr><td>s / ns</td><td>result negative / non-negative</td><td>SF / ~SF</td><td>any</td></tr>
+<tr><td>g</td><td>a &gt; b</td><td>~(SF^OF) &amp; ~ZF</td><td>signed</td></tr>
+<tr><td>ge</td><td>a ≥ b</td><td>~(SF^OF)</td><td>signed</td></tr>
+<tr><td>l</td><td>a &lt; b</td><td>SF^OF</td><td>signed</td></tr>
+<tr><td>le</td><td>a ≤ b</td><td>(SF^OF) | ZF</td><td>signed</td></tr>
+<tr><td>a</td><td>a &gt; b</td><td>~CF &amp; ~ZF</td><td>unsigned</td></tr>
+<tr><td>ae</td><td>a ≥ b</td><td>~CF</td><td>unsigned</td></tr>
+<tr><td>b</td><td>a &lt; b</td><td>CF</td><td>unsigned</td></tr>
+<tr><td>be</td><td>a ≤ b</td><td>CF | ZF</td><td>unsigned</td></tr>
+</table>
+<div class="note"><b>Memory aid.</b> <b>G</b>reater/<b>L</b>ess are for signed numbers. <b>A</b>bove/<b>B</b>elow are for unsigned numbers. Why SF^OF for "less"? If there was no overflow, the sign of a − b tells you the answer directly. If there was an overflow, the sign is flipped, so XOR with OF corrects it.</div>
+<h4>Worked example</h4>
+<pre>int gt(long x, long y) { return x &gt; y; }
+  cmpq  %rsi, %rdi     # compare x : y   (computes x - y)
+  setg  %al            # al = (x &gt; y)
+  movzbl %al, %eax     # zero the rest of %rax
+  ret</pre>
+<h4>Reading data_t and COMP (Practice Problem 3.13)</h4>
+<table>
+<tr><th>Code</th><th>data_t</th><th>COMP</th><th>Reasoning</th></tr>
+<tr><td><code>cmpl %esi,%edi ; setl %al</code></td><td>int</td><td>&lt;</td><td>l = 4 bytes; setl = signed less</td></tr>
+<tr><td><code>cmpw %si,%di ; setge %al</code></td><td>short</td><td>&gt;=</td><td>w = 2 bytes; signed</td></tr>
+<tr><td><code>cmpb %sil,%dil ; setbe %al</code></td><td>unsigned char</td><td>&lt;=</td><td>b = 1 byte; "below or equal" = unsigned</td></tr>
+<tr><td><code>cmpq %rsi,%rdi ; setne %al</code></td><td>long, unsigned long or a pointer</td><td>!=</td><td>ne does not depend on signedness</td></tr>
+</table>
+<p class="small">Note: the practice-deck solution lists only the types. A full answer also gives the comparison, as in the table above.</p>
+
+<!-- 8 -->
+<h2>8. Jumps, if/else and the "goto" style</h2>
+<p><code>jmp L</code> always jumps. <code>jX L</code> jumps when condition X holds (same suffixes as setX). <code>jmp *Operand</code> is an <b>indirect</b> jump that takes its target from a register or from memory (used for switch).</p>
+<p>The compiler turns <code>if (Test) Then else Else</code> into:</p>
+<pre>    ntest = !Test;  if (ntest) goto Else;
+    Then;  goto Done;
+Else:
+    Else;
+Done:</pre>
+<div class="warn"><b>Key fact for reading assembly.</b> The conditional jump usually tests the <b>opposite</b> of the C condition, because it jumps <i>past</i> the then-block. If you see <code>cmpq %rsi,%rdi ; jle .L4</code>, the code that falls through is the <code>x &gt; y</code> case.</div>
+<h4>Worked example: absdiff</h4>
+<div class="two">
+<pre>long absdiff(long x, long y) {
+  long result;
+  if (x &gt; y) result = x - y;
+  else       result = y - x;
+  return result;
+}</pre>
+<pre>absdiff:
+  cmpq %rsi, %rdi     # x : y
+  jle  .L4            # if x &lt;= y goto Else
+  movq %rdi, %rax
+  subq %rsi, %rax     # x - y
+  ret
+.L4:
+  movq %rsi, %rax
+  subq %rdi, %rax     # y - x
+  ret</pre></div>
+<h4>Worked example: Practice Problem 3.18 (nested if) — the revision video's main example</h4>
+<div>
+<pre>test:                          # x in rdi, y in rsi, z in rdx
+  leaq  (%rdi,%rsi), %rax      # rax = x+y
+  addq  %rdx, %rax             # rax = x+y+z     ← initial val
+  cmpq  $-3, %rdi
+  jge   .L2                    # x &gt;= -3 → .L2   so the block is x &lt; -3
+  cmpq  %rdx, %rsi
+  jge   .L3                    # y &gt;= z → .L3    so inner then is y &lt; z
+  movq  %rdi, %rax
+  imulq %rsi, %rax             # val = x*y
+  ret
+.L3:
+  movq  %rsi, %rax
+  imulq %rdx, %rax             # val = y*z
+  ret
+.L2:
+  cmpq  $2, %rdi
+  jle   .L4                    # x &lt;= 2 → skip   so else-if is x &gt; 2
+  movq  %rdi, %rax
+  imulq %rdx, %rax             # val = x*z
+.L4:
+  rep; ret</pre>
+<pre>long test(long x, long y, long z) {
+  long val = x + y + z;
+  if (x &lt; -3) {
+    if (y &lt; z)
+      val = x * y;
+    else
+      val = y * z;
+  } else if (x &gt; 2)
+    val = x * z;
+  return val;
+}</pre></div>
+<h4>Practice Problem 3.16: why does one if produce two branches?</h4>
+<p><code>if (p &amp;&amp; a &gt; *p) *p = a;</code> compiles to <code>testq %rsi,%rsi ; je .L1 ; cmpq %rdi,(%rsi) ; jge .L1 ; movq %rdi,(%rsi)</code>. Because <code>&amp;&amp;</code> <b>short-circuits</b>, each part of the condition gets its own jump. If p is null, the code skips the test of a &gt; *p entirely (and never dereferences null). In goto form: <code>if (p == 0) goto done; if (*p &gt;= a) goto done; *p = a; done: return;</code></p>
+
+<!-- 9 -->
+<h2>9. Conditional moves</h2>
+<p><code>cmovX S, D</code> means: if condition X holds, D = S. The compiler computes <b>both</b> outcomes, then picks one without branching:</p>
+<pre>result = Then_Expr;   eval = Else_Expr;   nt = !Test;   if (nt) result = eval;</pre>
+<div class="two">
+<pre>absdiff (cmov version):
+  movq   %rdi, %rax
+  subq   %rsi, %rax     # result = x-y
+  movq   %rsi, %rdx
+  subq   %rdi, %rdx     # eval = y-x
+  cmpq   %rsi, %rdi     # x : y
+  cmovle %rdx, %rax     # if x&lt;=y, result = eval
+  ret</pre>
+<div><p><b>Why use cmov?</b> A branch the CPU guesses wrong flushes the pipeline, which is slow. A cmov has no jump at all.</p>
+<p><b>When the compiler will not use cmov</b> (both sides are always evaluated):</p>
+<ul><li>expensive computations: <code>Test ? Hard1(x) : Hard2(x)</code></li>
+<li>risky computations: <code>p ? *p : 0</code> (null dereference)</li>
+<li>side effects: <code>x &gt; 0 ? x*=7 : x+=3</code></li></ul></div></div>
+<h4>Practice Problem 3.21 (cmov + branch)</h4>
+<pre>test:  leaq 0(,%rdi,8),%rax   # val = 8x
+       testq %rsi,%rsi ; jle .L2          # if y &lt;= 0 goto .L2  → block is y &gt; 0
+       movq %rsi,%rax ; subq %rdi,%rax     # rax = y - x
+       movq %rdi,%rdx ; andq %rsi,%rdx     # rdx = x &amp; y
+       cmpq %rsi,%rdi ; cmovge %rdx,%rax   # if x &gt;= y, rax = x &amp; y
+       ret
+.L2:   addq %rsi,%rdi ; cmpq $-2,%rsi ; cmovle %rdi,%rax   # if y &lt;= -2, val = x+y
+       ret</pre>
+<p>C: <code>val = 8*x; if (y &gt; 0) { if (x &lt; y) val = y - x; else val = x &amp; y; } else if (y &lt;= -2) val = x + y;</code></p>
+<h4>Practice Problem 3.20: division by a power of 2</h4>
+<pre>leaq 7(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $3,%rax     →  x / 8</pre>
+<p>A right shift rounds <i>down</i>, but C division rounds toward 0. For negative x the code adds a bias of 2<sup>k</sup>−1 (= 7) before shifting. cmovns keeps plain x when x ≥ 0.</p>
+
+<!-- 10 -->
+<h2>10. Loops</h2>
+<p>Assembly has no loops, only conditional jumps backward. There are three translations to recognise:</p>
+<table>
+<tr><th>C</th><th>Goto form</th><th>How to spot it</th></tr>
+<tr><td><code>do Body while (Test);</code></td><td><pre style="margin:0">loop: Body
+  if (Test) goto loop;</pre></td><td>no jump before the body; the test is at the bottom</td></tr>
+<tr><td><code>while (Test) Body</code><br><b>jump-to-middle</b> (-Og)</td><td><pre style="margin:0">  goto test;
+loop: Body
+test: if (Test) goto loop;</pre></td><td>an unconditional <code>jmp</code> to the test (near the bottom) right at the start</td></tr>
+<tr><td><code>while (Test) Body</code><br><b>guarded-do</b> (-O1)</td><td><pre style="margin:0">  if (!Test) goto done;
+loop: Body
+  if (Test) goto loop;
+done:</pre></td><td>the test is duplicated: once before the loop (jumps past it) and once at the bottom</td></tr>
+<tr><td><code>for (Init; Test; Update) Body</code></td><td>Init; while (Test) { Body; Update; }</td><td>an init before the loop and an "i++"-like line just before the test</td></tr>
+</table>
+<h4>Worked example: popcount, do-while (lecture)</h4>
+<div class="two">
+<pre>long pcount_do(unsigned long x) {
+  long result = 0;
+  do {
+    result += x &amp; 0x1;
+    x &gt;&gt;= 1;
+  } while (x);
+  return result;
+}</pre>
+<pre>  movl $0, %eax       # result = 0
+.L2:
+  movq %rdi, %rdx
+  andl $1, %edx       # t = x &amp; 1
+  addq %rdx, %rax     # result += t
+  shrq %rdi           # x &gt;&gt;= 1 (sets ZF!)
+  jne  .L2            # if (x) goto loop
+  rep; ret</pre></div>
+<p>Notice: <code>shrq</code> sets ZF, so <code>jne</code> needs no separate test. It uses <b>shr</b> (logical) because x is <b>unsigned</b>.</p>
+<h4>Worked example: Practice Problem 3.24, jump-to-middle</h4>
+<div class="two">
+<pre>  movl $1, %eax          # result = 1
+  jmp  .L2               # goto test
+.L3:
+  leaq (%rdi,%rsi),%rdx  # a+b
+  imulq %rdx, %rax       # result *= a+b
+  addq $1, %rdi          # a++
+.L2:
+  cmpq %rsi, %rdi        # a : b
+  jl   .L3               # while (a &lt; b)
+  rep; ret</pre>
+<pre>long loop_while(long a, long b) {
+  long result = 1;
+  while (a &lt; b) {
+    result = result * (a + b);
+    a = a + 1;
+  }
+  return result;
+}</pre></div>
+<h4>Worked example: Practice Problem 3.25, guarded-do (-O1)</h4>
+<div class="two">
+<pre>  testq %rsi, %rsi ; jle .L8    # if b &lt;= 0 → return b
+  movq %rsi, %rax               # result = b
+.L7:
+  imulq %rdi, %rax              # result *= a
+  subq %rdi, %rsi               # b = b - a
+  testq %rsi, %rsi
+  jg   .L7                      # while (b &gt; 0)
+  rep; ret
+.L8: movq %rsi, %rax ; ret</pre>
+<pre>long loop_while2(long a, long b) {
+  long result = b;
+  while (b &gt; 0) {
+    result = result * a;
+    b = b - a;
+  }
+  return result;
+}</pre></div>
+<h4>Spotting tricks the optimiser plays (Practice Problems 3.23, 3.28)</h4>
+<ul>
+<li><b>Pointers optimised away.</b> In 3.23, <code>long *p = &amp;x; … (*p)++;</code>. Because p always points to x, the compiler does <code>x += y + 1</code> with a single <code>leaq 1(%rcx,%rax),%rax</code> and keeps x, y, n in registers (%rax, %rcx, %rdx).</li>
+<li><b>Guard removed.</b> In 3.28, <code>for (i = 64; i != 0; i--)</code>. The compiler knows 64 ≠ 0, so there is no initial test and no jump to the middle; it looks like a plain do-while.</li>
+<li><b>English description questions:</b> 3.26 computes the <b>parity</b> of x (val ^= x on each shift, return val &amp; 1). 3.28 <b>reverses the bits</b> of x (val = (val &lt;&lt; 1) | (x &amp; 1); x &gt;&gt;= 1).</li>
+</ul>
+
+<!-- 11 -->
+<h2>11. Switch statements and jump tables</h2>
+<p>For dense case values, GCC builds a <b>jump table</b>: an array of 8-byte code addresses in <code>.rodata</code>. It then does one indirect jump: <code>jmp *.L4(,%rdi,8)</code>, which means goto *JTab[x].</p>
+<div class="two">
+<pre>long switch_eg(long x, long y, long z) {
+  long w = 1;
+  switch (x) {
+  case 1:  w = y*z;  break;
+  case 2:  w = y/z;  /* fall through */
+  case 3:  w += z;   break;
+  case 5:
+  case 6:  w -= z;   break;
+  default: w = 2;
+  }
+  return w;
+}</pre>
+<pre>switch_eg:
+  movq %rdx, %rcx
+  cmpq $6, %rdi          # x : 6
+  ja   .L8               # x &gt; 6 or x &lt; 0 → default
+  jmp  *.L4(,%rdi,8)     # goto *JTab[x]
+.L4:  .quad .L8   # 0  default
+      .quad .L3   # 1
+      .quad .L5   # 2
+      .quad .L9   # 3
+      .quad .L8   # 4  missing → default
+      .quad .L7   # 5
+      .quad .L7   # 6  shared with 5</pre></div>
+<div class="good"><b>Recipe for "fill in the switch" questions (Practice Problem 3.31).</b>
+<ol>
+<li>Find the smallest case: if there is a <code>subq $k,%rdi</code> (or <code>leaq -k(%rdi)</code>), table index i means case i + k. Without it, the index is the case value.</li>
+<li>Find the largest case: the constant in <code>cmpq $n</code> is the largest index, so the largest case is n + k.</li>
+<li><code>ja</code> goes to the default label. Table entries that point to the default label are <b>missing</b> case values.</li>
+<li>Several entries pointing to the same label are <b>shared</b> cases (case 5: case 6:).</li>
+<li>A block that ends with no jmp/ret and runs into the next block is a <b>fall-through</b>.</li>
+<li>Translate each block's instructions into C.</li></ol></div>
+<p>Practice Problem 3.31 solution, for reference: <code>case 5: c = b ^ 15; /* fall through */ case 0: val = c + 112; break; case 2: case 7: val = (c + b) &lt;&lt; 2; break; case 4: val = a; break; default: val = b;</code>.</p>
+<p><b>Why ja and not jg?</b> Treating x as unsigned makes negative x a huge number, so <b>one</b> comparison catches both x &lt; 0 and x &gt; max. <b>Why scale 8?</b> Each table entry is an 8-byte address.</p>
+
+<!-- 12 -->
+<h2>12. The stack, call and ret</h2>
+<ul>
+<li>The stack is a region of memory that <b>grows toward lower addresses</b>. <code>%rsp</code> holds the address of the <b>top</b> element (the lowest address in use).</li>
+<li><code>pushq Src</code>: %rsp −= 8, then M[%rsp] = Src.</li>
+<li><code>popq Dest</code>: Dest = M[%rsp], then %rsp += 8. Dest must be a register.</li>
+<li><code>call Label</code>: push the <b>return address</b> (the address of the instruction right after the call), then %rip = Label.</li>
+<li><code>ret</code>: pop the return address into %rip.</li>
+</ul>
+<h4>Worked example: multstore → mult2 (lecture)</h4>
+<pre>400544: callq 400550 &lt;mult2&gt;      before: %rsp = 0x120, %rip = 0x400544
+400549: mov %rax,(%rbx)
+
+after call:  %rsp = 0x118, M[0x118] = 0x400549, %rip = 0x400550
+in mult2:    400550 mov %rdi,%rax ; 400553 imul %rsi,%rax ; 400557 retq
+after ret:   %rsp = 0x120, %rip = 0x400549</pre>
+<p class="small">Check: the call moves %rsp down by exactly 8 (0x120 → 0x118), and ret moves it back up by 8.</p>
+
+<!-- 13 -->
+<h2>13. Calling conventions and register saving</h2>
+<table>
+<tr><th>What</th><th>Where</th></tr>
+<tr><td>Integer/pointer args 1–6</td><td>%rdi, %rsi, %rdx, %rcx, %r8, %r9</td></tr>
+<tr><td>Args 7+</td><td>on the stack, built by the caller. When the callee starts: 8(%rsp) = arg 7, 16(%rsp) = arg 8, … (arg 7 is at the lowest address)</td></tr>
+<tr><td>Return value</td><td>%rax (FP results: %xmm0)</td></tr>
+<tr><td>FP args</td><td>%xmm0, %xmm1, … (a separate count from the integer args)</td></tr>
+<tr><td><b>Caller-saved</b></td><td>%rax, %rdi, %rsi, %rdx, %rcx, %r8, %r9, %r10, %r11 (and all %xmm). The callee may overwrite them, so the caller must save them itself if it still needs them after the call.</td></tr>
+<tr><td><b>Callee-saved</b></td><td>%rbx, %rbp, %r12, %r13, %r14, %r15 (and %rsp is restored). A function that uses one must push it on entry and pop it before returning.</td></tr>
+</table>
+<div class="note"><b>The lecture's main/fun1 story.</b> main puts x in %rdi and y in %rsi and calls fun1. But fun1 needs %rdi and %rsi for its own calls, so they will be overwritten. If main needs x and y after the call ("make sure x and y are safe!"), it keeps them in <b>callee-saved</b> registers such as %rbx and %r12 (or on the stack).</div>
+<h4>Worked example: call_incr2 (lecture)</h4>
+<pre>long call_incr2(long x) { long v1 = 15213; long v2 = incr(&amp;v1, 3000); return x + v2; }
+
+call_incr2:
+  pushq %rbx               # save the caller's %rbx (callee-saved)
+  subq  $16, %rsp          # room for v1
+  movq  %rdi, %rbx         # keep x safe across the call
+  movq  $15213, 8(%rsp)    # v1 on the stack (its address is taken)
+  movl  $3000, %esi
+  leaq  8(%rsp), %rdi      # &amp;v1
+  call  incr
+  addq  %rbx, %rax         # x + v2
+  addq  $16, %rsp
+  popq  %rbx               # restore
+  ret</pre>
+<p>Practice Problem 3.35 (rfun) asks "what is in %rbx?". The answer is the parameter x, kept so that it can be used after the recursive call returns.</p>
+
+<!-- 14 -->
+<h2>14. Stack frames, locals and recursion</h2>
+<p>Each active call gets its own <b>frame</b>. From the caller's side (higher addresses) down to the top of the stack:</p>
+<pre>  ┌──────────────────────┐  higher addresses
+  │ caller's frame …      │
+  │ args 7+ for this call │
+  │ return address        │  ← pushed by call
+  ├──────────────────────┤  ← start of the current frame
+  │ old %rbp (optional)   │
+  │ saved registers       │  (callee-saved ones this function uses)
+  │ local variables       │  (only if they cannot live in registers)
+  │ argument build area   │  (args 7+ for functions it calls)
+  └──────────────────────┘  ← %rsp   lower addresses</pre>
+<p>A local variable goes on the stack when: there are not enough registers, <b>its address is taken</b> (&amp;v1), or it is an array or struct.</p>
+<h4>Worked example: recursive popcount (lecture)</h4>
+<div class="two">
+<pre>long pcount_r(unsigned long x) {
+  if (x == 0) return 0;
+  else return (x &amp; 1) + pcount_r(x &gt;&gt; 1);
+}</pre>
+<pre>pcount_r:
+  movl  $0, %eax
+  testq %rdi, %rdi
+  je    .L6             # base case returns 0
+  pushq %rbx            # save the caller's rbx
+  movq  %rdi, %rbx
+  andl  $1, %ebx        # rbx = x &amp; 1 (survives the call)
+  shrq  %rdi            # arg = x &gt;&gt; 1
+  call  pcount_r
+  addq  %rbx, %rax      # (x&amp;1) + result
+  popq  %rbx
+.L6:
+  rep; ret</pre></div>
+<p>Trace for x = 0110₂ (6): rbx values 0, 1, 1 are pushed down the chain. The innermost call returns 0, then the returns add up 0+1 = 1, 1+1 = 2, 2+0 = 2. Recursion needs nothing special: each call has its own frame, and the register conventions protect each level's data (the stack is LIFO).</p>
+
+<!-- 15 -->
+<h2 class="pb">15. Arrays (L14)</h2>
+<h3>15.1 One-dimensional</h3>
+<p><code>T A[L];</code> is a contiguous block of L·sizeof(T) bytes. The name <code>A</code> acts as a pointer of type <code>T*</code> to element 0. <b>Pointer arithmetic scales automatically</b>: <code>A + i</code> is the address x<sub>A</sub> + i·sizeof(T).</p>
+<table>
+<tr><th><code>int val[5] = {1,5,2,1,3}</code> at x</th><th>Type</th><th>Value</th></tr>
+<tr><td><code>val[4]</code></td><td>int</td><td>3</td></tr>
+<tr><td><code>val</code></td><td>int *</td><td>x</td></tr>
+<tr><td><code>val+1</code></td><td>int *</td><td>x + 4</td></tr>
+<tr><td><code>&amp;val[2]</code></td><td>int *</td><td>x + 8</td></tr>
+<tr><td><code>val[5]</code></td><td>int</td><td>?? (out of bounds; C does no checking)</td></tr>
+<tr><td><code>*(val+1)</code></td><td>int</td><td>5</td></tr>
+<tr><td><code>val + i</code></td><td>int *</td><td>x + 4i</td></tr>
+</table>
+<pre>int get_digit(zip_dig z, int digit) { return z[digit]; }
+  movl (%rdi,%rsi,4), %eax      # z[digit] = M[z + 4*digit]
+
+void zincr(zip_dig z) { for (size_t i = 0; i &lt; ZLEN; i++) z[i]++; }
+  movl $0, %eax                 # i = 0
+  jmp  .L3                      # goto middle
+.L4: addl $1, (%rdi,%rax,4)     # z[i]++
+     addq $1, %rax              # i++
+.L3: cmpq $4, %rax              # i : 4
+     jbe  .L4                   # if i &lt;= 4 (unsigned: size_t) goto loop</pre>
+<p>Notes on zincr: the compiler rewrote <code>i &lt; 5</code> as <code>i &lt;= 4</code>, and it uses <code>jbe</code> because size_t is unsigned.</p>
+<h4>Practice Problem 3.36: sizes</h4>
+<table><tr><th>Decl</th><th>Element size</th><th>Total</th><th>&amp;elem i</th></tr>
+<tr><td>short S[7]</td><td>2</td><td>14</td><td>x + 2i</td></tr>
+<tr><td>short *T[3]</td><td>8</td><td>24</td><td>x + 8i</td></tr>
+<tr><td>short **U[6]</td><td>8</td><td>48</td><td>x + 8i</td></tr>
+<tr><td>int V[8]</td><td>4</td><td>32</td><td>x + 4i</td></tr>
+<tr><td>double *W[4]</td><td>8</td><td>32</td><td>x + 8i</td></tr></table>
+<h4>Practice Problem 3.37: expressions (x<sub>S</sub> in %rdx, i in %rcx, short S[])</h4>
+<table><tr><th>Expr</th><th>Type</th><th>Value</th><th>Assembly</th></tr>
+<tr><td>S+1</td><td>short *</td><td>x<sub>S</sub> + 2</td><td><code>leaq 2(%rdx),%rax</code></td></tr>
+<tr><td>S[3]</td><td>short</td><td>M[x<sub>S</sub> + 6]</td><td><code>movw 6(%rdx),%ax</code></td></tr>
+<tr><td>&amp;S[i]</td><td>short *</td><td>x<sub>S</sub> + 2i</td><td><code>leaq (%rdx,%rcx,2),%rax</code></td></tr>
+<tr><td>S[4*i+1]</td><td>short</td><td>M[x<sub>S</sub> + 8i + 2]</td><td><code>movw 2(%rdx,%rcx,8),%ax</code></td></tr>
+<tr><td>S+i-5</td><td>short *</td><td>x<sub>S</sub> + 2i − 10</td><td><code>leaq -10(%rdx,%rcx,2),%rax</code></td></tr></table>
+<p><b>Rule:</b> if the expression is an <b>address</b> (pointer type), use leaq. If it is an <b>element</b>, use mov with the element's suffix.</p>
+
+<h3>15.2 Nested (multi-dimensional) arrays</h3>
+<p><code>T A[R][C];</code> has R rows of C elements each, R·C·K bytes in total (K = sizeof(T)), stored in <b>row-major</b> order (all of row 0, then all of row 1, …).</p>
+<div class="good"><b>The two formulas to memorise.</b><br>
+Row: <code>A[i]</code> starts at <b>A + i·C·K</b>.<br>
+Element: <code>&amp;A[i][j]</code> = <b>A + (i·C + j)·K</b>.<br>
+Only C (the number of columns) appears. R is never needed to find an address.</div>
+<p>Example: in a 3×3 matrix, a[1][2] → 1·3 + 2 = flat index 5. If each element is k bytes, that is Mem[a + 5k].</p>
+<pre>int pgh[4][5];      /* zip_dig pgh[4] */
+int *get_pgh_zip(int index) { return pgh[index]; }        # a row
+  leaq (%rdi,%rdi,4), %rax       # 5*index
+  leaq pgh(,%rax,4), %rax        # pgh + 20*index
+
+int get_pgh_digit(int index, int dig) { return pgh[index][dig]; }
+  leaq (%rdi,%rdi,4), %rax       # 5*index
+  addl %rax, %rsi                # 5*index + dig
+  movl pgh(,%rsi,4), %eax        # M[pgh + 4*(5*index + dig)]</pre>
+
+<h3>15.3 Multi-level arrays (arrays of pointers)</h3>
+<pre>int *univ[3] = {mit, cmu, ucb};       /* each element is an 8-byte pointer to an int[5] */
+int get_univ_digit(size_t index, size_t digit) { return univ[index][digit]; }
+  salq $2, %rsi                  # 4*digit
+  addq univ(,%rdi,8), %rsi       # p = univ[index] + 4*digit    ← memory read #1
+  movl (%rsi), %eax              # return *p                    ← memory read #2</pre>
+<table><tr><th></th><th>Nested <code>pgh[i][j]</code></th><th>Multi-level <code>univ[i][j]</code></th></tr>
+<tr><td>Address</td><td>Mem[pgh + 20i + 4j]</td><td>Mem[ Mem[univ + 8i] + 4j ]</td></tr>
+<tr><td>Memory reads</td><td>1</td><td>2</td></tr>
+<tr><td>Rows contiguous?</td><td>yes</td><td>not necessarily (each row can be anywhere)</td></tr></table>
+
+<h3>15.4 Fixed vs variable-size matrices</h3>
+<pre>#define N 16
+int fix_ele(fix_matrix a, size_t i, size_t j) { return a[i][j]; }
+  salq $6, %rsi                  # 64*i   (C*K = 16*4 = 64, so a shift)
+  addq %rsi, %rdi                # a + 64i
+  movl (%rdi,%rdx,4), %eax       # M[a + 64i + 4j]
+
+int var_ele(size_t n, int a[n][n], size_t i, size_t j) { return a[i][j]; }
+  imulq %rdx, %rdi               # n*i   (n unknown at compile time → real multiply)
+  leaq (%rsi,%rdi,4), %rax       # a + 4*n*i
+  movl (%rax,%rcx,4), %eax       # M[a + 4ni + 4j]</pre>
+<p>Before variable-length arrays existed in C, programmers wrote <code>a[IDX(n,i,j)]</code> with <code>#define IDX(n,i,j) ((i)*(n)+(j))</code>, the same formula done by hand.</p>
+
+<h3>15.5 Reverse-engineering M and N (the lecture's final example)</h3>
+<div>
+<pre>long A[M][N];
+long B[N][M];
+long sum_element(int i, int j) {
+  return A[i][j] + B[j][i];
+}</pre>
+<pre>leaq (,%rdi,8), %rdx       # rdx = 8i
+subq %rdi, %rdx            # rdx = 7i
+addq %rsi, %rdx            # rdx = 7i + j        → A's row length N = 7
+leaq (%rsi,%rsi,4), %rax   # rax = 5j
+addq %rax, %rdi            # rdi = 5j + i        → B's row length M = 5
+movq B(,%rdi,8), %rax      # M[B + 8(5j + i)]
+addq A(,%rdx,8), %rax      # + M[A + 8(7i + j)]
+ret</pre></div>
+<p><b>Answer: M = 5, N = 7.</b> Method: find the index expression multiplying i for A (that is A's column count N) and the one multiplying j for B (that is B's column count M).</p>
+
+<!-- 16 -->
+<h2>16. Structures and alignment</h2>
+<p>A struct is one block of memory with its fields <b>in declaration order</b>. The compiler fixes each field's offset at compile time, and the machine code just uses those offsets.</p>
+<pre>struct rec { int a[4]; size_t i; struct rec *next; };
+/* offsets: a 0, i 16, next 24; size 32 */
+int *get_ap(struct rec *r, size_t idx) { return &amp;r-&gt;a[idx]; }
+  leaq (%rdi,%rsi,4), %rax       # r + 4*idx
+
+void set_val(struct rec *r, int val) {
+  while (r) { int i = r-&gt;i; r-&gt;a[i] = val; r = r-&gt;next; }
+}
+.L11:
+  movslq 16(%rdi), %rax          # i = M[r+16]
+  movl   %esi, (%rdi,%rax,4)     # M[r + 4*i] = val
+  movq   24(%rdi), %rdi          # r = M[r+24]
+  testq  %rdi, %rdi              # test r
+  jne    .L11                    # if != 0 goto loop</pre>
+<h4>Alignment rules (x86-64)</h4>
+<ul>
+<li>A primitive of K bytes must sit at an address that is a <b>multiple of K</b>: char any address, short even addresses, int/float multiples of 4, long/double/pointer multiples of 8, long double multiples of 16.</li>
+<li><b>Inside</b> a struct, the compiler inserts padding so that every field is aligned.</li>
+<li>The struct's own alignment K is the <b>largest</b> alignment of any field. The <b>total size is rounded up to a multiple of K</b> (end padding), so that every element of an array of structs is aligned.</li>
+<li>Why align? Memory is accessed in aligned 4- or 8-byte chunks. A value that crosses a chunk (or page) boundary is slower and trickier for virtual memory.</li>
+</ul>
+<h4>Worked examples</h4>
+<table><tr><th>Struct</th><th>Layout</th><th>Size</th></tr>
+<tr><td><code>{ char c; int i[2]; double v; }</code></td><td>c@0, pad 3, i@4, v@16 (pad 4 after i)</td><td>24</td></tr>
+<tr><td><code>{ double v; int i[2]; char c; }</code></td><td>v@0, i@8, c@16, end pad 7</td><td>24</td></tr>
+<tr><td><code>{ short i; float v; short j; }</code></td><td>i@0, pad 2, v@4, j@8, end pad 2</td><td>12</td></tr>
+<tr><td><code>{ char c; int i; char d; }</code></td><td>c@0, i@4, d@8, end pad 3</td><td>12</td></tr>
+<tr><td><code>{ int i; char c; char d; }</code></td><td>i@0, c@4, d@5, end pad 2</td><td>8</td></tr></table>
+<p><b>Saving space:</b> put the largest types first. Accessing <code>a[idx].j</code> in an array of the 12-byte struct: <code>leaq (%rdi,%rdi,2),%rax</code> (3·idx), then <code>movzwl a+8(,%rax,4),%eax</code> (a + 12·idx + 8).</p>
+
+<!-- 17 -->
+<h2>17. Unions, byte order and floating point</h2>
+<ul>
+<li><b>Union:</b> all fields start at offset 0 and share the same bytes. Its size is that of the largest member (rounded to its alignment). Only one field is meaningful at a time. <code>union { int i[2]; double v; }</code> is 8 bytes, while the same fields in a struct take 16.</li>
+<li><b>Viewing bit patterns:</b> <code>union { float f; unsigned u; }</code>. Writing u and reading f reinterprets the bits. That is <b>not</b> the same as <code>(float)u</code>, which converts the value.</li>
+<li><b>Endianness:</b> little endian (x86, ARM in Android/iOS) stores the least significant byte at the lowest address. Big endian (SPARC) stores the most significant byte first. Bi-endian chips (ARM) can do either. 0x12345678 at 0x100 is stored as 78 56 34 12 on little endian.</li>
+<li><b>Floating point</b> uses the SSE/AVX XMM registers: 16 of them (%xmm0–%xmm15), 16 bytes each. A register can hold 4 floats, 2 doubles, or a single scalar float/double.
+  <ul><li>Scalar vs SIMD: <code>addss</code> (1 float), <code>addsd</code> (1 double), <code>addps</code> (4 floats at once, "packed").</li>
+  <li>Args in %xmm0, %xmm1, …; result in %xmm0; all XMM registers are caller-saved. Integer and pointer args still use %rdi, … .</li>
+  <li><code>movsd (%rdi),%xmm0</code> loads a double; <code>movapd</code> copies between XMM registers; <code>ucomiss</code>/<code>ucomisd</code> compare (setting CF, ZF, PF); <code>xorpd %xmm0,%xmm0</code> zeroes a register. Other constants are loaded from memory.</li></ul></li>
+</ul>
+<pre>double dincr(double *p, double v) { double x = *p; *p = x + v; return x; }
+  movapd %xmm0, %xmm1     # copy v
+  movsd  (%rdi), %xmm0    # x = *p        (return value goes in xmm0)
+  addsd  %xmm0, %xmm1     # t = x + v
+  movsd  %xmm1, (%rdi)    # *p = t
+  ret</pre>
+
+<!-- 18 -->
+<h2 class="pb">18. One-page cheat sheet</h2>
+<div class="two" style="font-size:9.2pt">
+<div>
+<h4>Operands</h4>
+<p><code>$c</code> constant · <code>%r</code> register · <code>D(Rb,Ri,S)</code> = M[D + Rb + S·Ri], S ∈ {1,2,4,8}, Ri ≠ %rsp · a bare number is an absolute address.</p>
+<h4>Sizes</h4>
+<p>b 1 · w 2 · l 4 · q 8. char 1, short 2, int/float 4, long/double/pointer 8.</p>
+<h4>Registers</h4>
+<p>Args: <b>rdi rsi rdx rcx r8 r9</b> · ret: <b>rax</b><br>
+Callee-saved: <b>rbx rbp r12–r15</b> (+ rsp)<br>
+Caller-saved: rax, the arg registers, r10, r11, all xmm<br>
+FP: args xmm0.., return xmm0.<br>
+32-bit writes zero the upper half; 8/16-bit writes do not.</p>
+<h4>Arithmetic</h4>
+<p><code>op S,D</code>: D = D op S. <b>subq S,D: D − S</b>. sal/shl = &lt;&lt;; sar = signed &gt;&gt;; shr = unsigned &gt;&gt;. leaq = address math, no memory access, no flags. xor r,r = 0.</p>
+<h4>Extension</h4>
+<p>Wider: movz (unsigned source) / movs (signed source). Narrower: load full, store the low part.</p>
+<h4>Flags</h4>
+<p>CF unsigned overflow · ZF zero · SF negative · OF signed overflow. cmp b,a → a − b. test b,a → a &amp; b. leaq sets none.</p>
+</div>
+<div>
+<h4>Conditions</h4>
+<p>e ne s ns · signed: g ge l le · unsigned: a ae b be. Branches jump on the <b>negated</b> C test.</p>
+<h4>Loops</h4>
+<p>do-while: test at the bottom only. Jump-to-middle (-Og): <code>jmp test</code> first. Guarded-do (-O1): test before the loop + test at the bottom. for = init; while (test) { body; update; }</p>
+<h4>Switch</h4>
+<p><code>subq $k</code> → min case k. <code>cmpq $n; ja default</code> → max case n + k. <code>jmp *T(,%rdi,8)</code>. Entries pointing at default are missing cases; repeated labels are shared cases; no jmp at the end of a block means fall-through.</p>
+<h4>Stack</h4>
+<p>push: rsp −= 8, store. pop: load, rsp += 8. call: push the next address, jump. ret: pop into rip. Arg 7 is at 8(%rsp) on entry.</p>
+<h4>Arrays</h4>
+<p>&amp;A[i] = A + K·i. &amp;A[i][j] = A + K(i·C + j). Multi-level: M[M[A + 8i] + K·j] (2 reads).</p>
+<h4>Structs</h4>
+<p>Field offset is a multiple of its own size; size is a multiple of the largest field. Union size = largest member.</p>
+</div></div>
+
+<!-- 19 -->
+<h2>19. How to attack each question type</h2>
+<table>
+<tr><th style="width:24%">Question type</th><th>Steps</th><th style="width:16%">Practice problems</th></tr>
+<tr><td>Operand values</td><td>Address = D + Rb + S·Ri (in hex) → look it up. $ means no lookup.</td><td>3.1</td></tr>
+<tr><td>Suffix / illegal</td><td>Suffix from the non-address register. Check: mem-mem, immediate destination, size mismatch, fake register, 32-bit address register, scale.</td><td>3.2, 3.3</td></tr>
+<tr><td>Cast moves</td><td>Wider: movs/movz by the source's sign. Narrower: load, store the low part.</td><td>3.4</td></tr>
+<tr><td>Assembly → C (straight line)</td><td>Annotate each line with the destination's new meaning; watch sub order; parentheses mean *.</td><td>3.5, 3.7, 3.10</td></tr>
+<tr><td>leaq formulas</td><td>D + Rb + S·Ri as an algebra expression.</td><td>3.6</td></tr>
+<tr><td>Instruction effects</td><td>Destination = second operand; compute the address; apply the op to the old value.</td><td>3.8</td></tr>
+<tr><td>Comparisons / types</td><td>Size from the suffix and register; signed vs unsigned from the set/jump letter; read cmp b,a as "a ? b".</td><td>3.13</td></tr>
+<tr><td>if/else to C</td><td>Label the blocks; the C condition is the negation of the jump; each ret ends a path; the value before the test is the initial value.</td><td>3.16, 3.18, 3.21</td></tr>
+<tr><td>Loops to C</td><td>Find the back-edge (backward jump). Classify: jmp-to-test = jump-to-middle; guard = guarded-do; else do-while. Identify init, test, body, update.</td><td>3.23–3.28</td></tr>
+<tr><td>Switch</td><td>Offset k, max n, default label, missing/shared/fall-through, then translate the blocks.</td><td>3.31</td></tr>
+<tr><td>Recursion</td><td>What is saved in the callee-saved register (it is needed after the call)? What is the argument to the recursive call? How is %rax combined?</td><td>3.35</td></tr>
+<tr><td>Arrays</td><td>Element size and total size; address formulas; leaq for addresses, mov for values; for 2-D find C from the multiplier.</td><td>3.36, 3.37, L14</td></tr>
+<tr><td>Structs</td><td>Offsets with padding; total rounded to K; reorder largest first.</td><td>L15</td></tr>
+</table>
+</body></html>

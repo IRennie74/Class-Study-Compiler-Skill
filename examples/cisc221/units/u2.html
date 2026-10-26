@@ -1,0 +1,204 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — "fill in the C" for straight-line arithmetic</h4>
+<ol>
+<li><b>Register map.</b> From the prototype, write x → %rdi, y → %rsi, z → %rdx (then %rcx, %r8, %r9).</li>
+<li><b>Annotate every line.</b> Next to each instruction, write the new value of the <b>destination</b> (the second operand) as an expression in the <i>original</i> variables. Use these translations:
+<table><tr><th>Instruction</th><th>Write</th></tr>
+<tr><td><code>leaq D(a,b,S), d</code></td><td>d = D + a + S·b</td></tr>
+<tr><td><code>subq s, d</code></td><td>d = d − s (reversed from how it reads)</td></tr>
+<tr><td><code>salq k, d</code></td><td>d = d · 2<sup>k</sup></td></tr>
+<tr><td><code>sarq k, d</code> / <code>shrq k, d</code></td><td>d = d &gt;&gt; k (signed / unsigned)</td></tr>
+<tr><td><code>notq d</code> / <code>negq d</code></td><td>d = ~d / d = −d</td></tr>
+<tr><td><code>xorq r, r</code></td><td>r = 0</td></tr></table></li>
+<li><b>Track register reuse.</b> When a register is overwritten, its old meaning is gone. Cross it out in your map.</li>
+<li><b>Match to the blanks.</b> The C temporaries (t1, t2, …) are usually the values after particular lines. The compiler may merge two C lines into one leaq, or reorder independent ones.</li>
+<li><b>Verify with numbers.</b> Pick x = 1, y = 2, z = 3, run both the assembly (on your annotations) and your C, and check that they agree. It takes 30 seconds and catches most sign and order mistakes.</li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer (Practice Problem 3.10 style)</h4>
+<pre>Register map:  x → %rdi   y → %rsi   z → %rdx
+
+Line  Instruction        Destination ← new value              C name
+1     orq  %rsi, %rdi    rdi ← x | y                          t1
+2     sarq $3, %rdi      rdi ← t1 &gt;&gt; 3   (arith, x is signed)  t2
+3     notq %rdi          rdi ← ~t2                            t3
+4     movq %rdx, %rax    rax ← z
+5     subq %rdi, %rax    rax ← z − t3     (dest − src!)        t4  → returned
+
+Answer:   long t1 = x | y;   long t2 = t1 &gt;&gt; 3;   long t3 = ~t2;   long t4 = z - t3;
+
+Check (x=1, y=2, z=3): t1 = 3, t2 = 0, t3 = −1, t4 = 3 − (−1) = 4.
+          The assembly gives the same: rdi: 3 → 0 → −1; rax: 3 → 4 ✓</pre>
+<p><b>For instruction-effect tables (3.8 style)</b>, write: <i>dest = (address calc) ; old value op source = new value</i>. For example: "subq %rdx,8(%rax): dest = 0x100 + 8 = 0x108; 0xAB − 3 = <b>0xA8</b>".</p></div>
+<div class="deck"><b>From the practice deck, also do:</b> Problem 6 (3.6 leaq), Problem 7 (3.7 scale2), Problem 8 (3.8 effects), Problem 9 (3.10 arith2), Problem 10 (3.11 xor). The lecture's arith example (L10) is a must-know.</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">2.1</span><span class="lvl e">easy</span> %rdi = a and %rsi = b. Give the formula stored in %rax.
+<pre>(a) leaq 12(%rdi),%rax         (b) leaq (%rsi,%rsi),%rax          (c) leaq (%rdi,%rsi,8),%rax
+(d) leaq -1(%rsi,%rsi,4),%rax  (e) leaq 0x20(%rdi,%rdi,2),%rax    (f) leaq (,%rdi,4),%rax</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">2.2</span><span class="lvl m">medium</span> Memory: M[0x500] = 0x4, M[0x508] = 0x10, M[0x510] = 0xFF, M[0x518] = 0x2. Registers: %rax = 0x500, %rbx = 0x2, %rcx = 0x8. Each instruction is independent. Give the destination and the new value, showing your work.
+<pre>(a) addq %rcx,(%rax)          (b) subq %rbx,0x10(%rax)        (c) imulq %rbx,%rcx
+(d) shlq $4,8(%rax)           (e) orq $1,(%rax,%rcx,2)        (f) incq (%rax,%rbx,4)
+(g) leaq (%rax,%rbx,8),%rdx   (h) sarq $1,%rcx</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">2.3</span><span class="lvl m">medium</span> Fill in the C with an annotation table and a numeric check. Here x is in %rdi, y in %rsi and z in %rdx.
+<div class="two"><pre>long calc(long x, long y, long z) {
+  long t1 = ________;
+  long t2 = ________;
+  long t3 = ________;
+  long t4 = ________;
+  return t4;
+}</pre><pre>calc:
+  leaq (%rdi,%rdi,4), %rax
+  subq %rsi, %rax
+  andq %rdx, %rax
+  salq $3, %rdx
+  subq %rax, %rdx
+  movq %rdx, %rax
+  ret</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">2.4</span><span class="lvl m">medium</span> Using only leaq, shifts, add and sub (no imul), write assembly with x in %rdi and the result in %rax for (a) x·36, (b) 7x + 3, (c) x·10.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">2.5</span><span class="lvl m">medium</span> Fill in the constants: <code>long m(long x) { return x * __ + __; }</code>
+<pre>m:  leaq (%rdi,%rdi,2), %rax
+    leaq 5(%rdi,%rax,4), %rax
+    ret</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">2.6</span><span class="lvl h">harder</span> Fill in the C. Here a is in %rdi and b in %rsi. The compiler merged some steps.
+<div class="two"><pre>unsigned long mix(unsigned long a,
+                  unsigned long b) {
+  unsigned long t1 = a ^ b;
+  unsigned long t2 = ________;
+  unsigned long t3 = ________;
+  return ________;
+}</pre><pre>mix:
+  movq  %rdi, %rax
+  xorq  %rsi, %rax
+  leaq  (%rax,%rax,8), %rdx
+  shrq  $2, %rax
+  negq  %rax
+  addq  %rdx, %rax
+  ret</pre></div>
+(Hint: t2 should use the value from the leaq line, and t3 should use the shift.)
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">2.7</span><span class="lvl m">medium</span> Fill in the C. Here x is in %rdi, y in %rsi and z in %rdx.
+<div class="two"><pre>long arith4(long x, long y, long z) {
+  long t1 = ________;
+  long t2 = ________;
+  long t3 = ________;
+  long t4 = ________;
+  return ________;
+}</pre><pre>arith4:
+  leaq  (%rsi,%rdx), %rax
+  leaq  (%rdi,%rdi,2), %rcx
+  salq  $3, %rcx
+  subq  %rdi, %rax
+  imulq %rcx, %rax
+  addq  $7, %rax
+  ret</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">2.8</span><span class="lvl e">easy</span> Fill in the expression: <code>long scale4(long x, long y, long z) { long t = ________; return t; }</code>
+<pre>scale4:  leaq (%rsi,%rsi,4), %rax
+         leaq (%rdi,%rax,2), %rax
+         leaq -3(%rax,%rdx,8), %rax
+         ret</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">2.9</span><span class="lvl m">medium</span> Write the assembly for each function (x in %rdi, y in %rsi, z in %rdx).
+<pre>(a) long f1(long x, long y, long z) { return (x + y) * (z - 4); }
+(b) long f2(long x, long y)         { return ~((x &gt;&gt; 3) ^ y); }
+(c) long f3(long x)                 { return x &amp; -x; }</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">2.10</span><span class="lvl e">easy</span> Short answers. (a) What does <code>xorl %eax,%eax</code> do, and why do compilers use it? (b) Give two reasons the compiler uses leaq for arithmetic. (c) Why is there only one add instruction for both signed and unsigned numbers? (d) Which constants can leaq multiply by in one instruction, and what form does each take?
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">2.1</span>
+<pre>(a) a + 12   (b) 2b   (c) a + 8b   (d) 5b − 1   (e) 3a + 32  (0x20 = 32)   (f) 4a</pre></div>
+
+<div class="sol"><span class="qn">2.2</span>
+<pre>(a) addq %rcx,(%rax)       dest 0x500;            0x4 + 0x8                 = 0xC
+(b) subq %rbx,0x10(%rax)   dest 0x500+0x10=0x510; 0xFF − 0x2               = 0xFD
+(c) imulq %rbx,%rcx        dest %rcx;             0x8 · 0x2                 = 0x10
+(d) shlq $4,8(%rax)        dest 0x508;            0x10 &lt;&lt; 4 = 0x10·16       = 0x100
+(e) orq $1,(%rax,%rcx,2)   dest 0x500+2·8=0x510;  0xFF | 0x1                = 0xFF
+(f) incq (%rax,%rbx,4)     dest 0x500+4·2=0x508;  0x10 + 1                  = 0x11
+(g) leaq (%rax,%rbx,8),%rdx dest %rdx;            0x500 + 8·2 (no memory!)  = 0x510
+(h) sarq $1,%rcx           dest %rcx;             0x8 &gt;&gt; 1                  = 0x4</pre></div>
+
+<div class="sol"><span class="qn">2.3</span>
+<pre>map: x → rdi, y → rsi, z → rdx
+1 leaq (%rdi,%rdi,4),%rax   rax ← 5x
+2 subq %rsi,%rax            rax ← 5x − y              t1
+3 andq %rdx,%rax            rax ← t1 &amp; z              t2
+4 salq $3,%rdx              rdx ← z &lt;&lt; 3  (= 8z)       t3   (z's old meaning is gone)
+5 subq %rax,%rdx            rdx ← t3 − t2             t4
+6 movq %rdx,%rax            return t4
+
+Answer: t1 = 5*x - y;  t2 = t1 &amp; z;  t3 = z &lt;&lt; 3;  (or z*8)  t4 = t3 - t2;
+Check x=1,y=2,z=3: t1 = 3, t2 = 3&amp;3 = 3, t3 = 24, t4 = 21.  asm: rax 5 → 3 → 3; rdx 24 → 21 ✓</pre></div>
+
+<div class="sol"><span class="qn">2.4</span>
+<pre>(a) leaq (%rdi,%rdi,8),%rax   # 9x
+    salq $2,%rax              # 36x
+(b) leaq 0(,%rdi,8),%rax      # 8x
+    subq %rdi,%rax            # 7x
+    addq $3,%rax              # 7x + 3      (or: leaq 3(%rax),%rax)
+(c) leaq (%rdi,%rdi,4),%rax   # 5x
+    addq %rax,%rax            # 10x         (or salq $1,%rax)</pre></div>
+
+<div class="sol"><span class="qn">2.5</span>
+<pre>line 1: rax = x + 2x = 3x
+line 2: rax = 5 + x + 4·(3x) = 13x + 5        →  return x * 13 + 5;</pre></div>
+
+<div class="sol"><span class="qn">2.6</span>
+<pre>1-2  rax ← a ^ b                 t1
+3    rdx ← t1 + 8·t1 = 9·t1      t2 = t1 * 9
+4    rax ← t1 &gt;&gt; 2  (shr → unsigned/logical shift of t1)
+5    rax ← −(t1 &gt;&gt; 2)            t3 = -(t1 &gt;&gt; 2)
+6    rax ← t3 + t2               return t2 + t3;
+Answer: t2 = t1 * 9;  t3 = -(t1 &gt;&gt; 2);  return t2 + t3;
+Note: shrq is a LOGICAL shift because the values are unsigned. For a signed long the compiler
+uses sarq, so the shift instruction tells you the type.</pre></div>
+
+<div class="sol"><span class="qn">2.7</span>
+<pre>map: x → rdi, y → rsi, z → rdx
+1 leaq (%rsi,%rdx),%rax       rax ← y + z                      t1
+2 leaq (%rdi,%rdi,2),%rcx     rcx ← 3x
+3 salq $3,%rcx                rcx ← 24x                        t2 = x * 24
+4 subq %rdi,%rax              rax ← t1 − x                     t3 = t1 - x
+5 imulq %rcx,%rax             rax ← t3 · t2                    t4 = t3 * t2
+6 addq $7,%rax                rax ← t4 + 7                     return t4 + 7
+Check x=1,y=2,z=3: t1 = 5, t2 = 24, t3 = 4, t4 = 96, result 103.  asm: rax 5 → 4 → 96 → 103 ✓</pre></div>
+
+<div class="sol"><span class="qn">2.8</span>
+<pre>1 leaq (%rsi,%rsi,4),%rax     5y
+2 leaq (%rdi,%rax,2),%rax     x + 2·5y = x + 10y
+3 leaq -3(%rax,%rdx,8),%rax   x + 10y + 8z − 3
+Answer: long t = x + 10*y + 8*z - 3;</pre></div>
+
+<div class="sol"><span class="qn">2.9</span>
+<pre>(a) leaq (%rdi,%rsi),%rax ; leaq -4(%rdx),%rcx ; imulq %rcx,%rax ; ret
+    (or: movq %rdi,%rax ; addq %rsi,%rax ; movq %rdx,%rcx ; subq $4,%rcx ; imulq %rcx,%rax)
+(b) movq %rdi,%rax ; sarq $3,%rax ; xorq %rsi,%rax ; notq %rax ; ret     (signed → sarq)
+(c) movq %rdi,%rax ; negq %rax ; andq %rdi,%rax ; ret      (x &amp; -x isolates the lowest 1-bit)</pre></div>
+
+<div class="sol"><span class="qn">2.10</span>
+<pre>(a) xorl %eax,%eax (or xorq %rax,%rax) sets rax = 0. It is shorter to encode than movq $0,%rax.
+(b) leaq does not touch the flags and can add three things (D + a + S·b) into any destination
+    in one instruction. add needs dest = one of the sources.
+(c) Two's complement: addition, subtraction and multiplication (low 64 bits) give the same bit
+    pattern for signed and unsigned values. Only shifts right, comparisons and division differ.
+(d) 3 → (r,r,2); 5 → (r,r,4); 9 → (r,r,8). These are the only 1-instruction leaq multipliers
+    (plus 2, 4, 8 via (,r,S), and 1).</pre></div>
+
+<ul class="check"><li>I annotate every line before writing C.</li><li>I always write <code>sub s,d</code> as d − s.</li><li>I can turn any leaq into an algebra expression.</li><li>I check my answer with small numbers.</li><li>I know the difference between notq and negq, and between sarq and shrq.</li></ul>

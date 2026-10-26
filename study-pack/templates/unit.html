@@ -1,0 +1,31 @@
+<!-- units/uN.html — one unit of the problem workbook. Three markers are REQUIRED. -->
+<!--METHOD-->
+<div class="method"><h4>Solving method — {{problem type}}</h4>
+<ol>
+<li><b>{{step name}}.</b> {{what to do, concretely}}</li>
+<li>…</li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer ({{source-problem style}})</h4>
+<p>{{one sentence: what the grader needs to see}}</p>
+<pre>{{a complete answer laid out EXACTLY as the student should write it on paper:
+   setup line (givens / variable map) → annotated working → boxed final answer → numeric check}}</pre></div>
+<div class="deck"><b>From the instructor's practice material, also do:</b> {{list of official problems for this unit}}</div>
+
+<!--PRACTICE-->
+<!-- 8–12 problems. Difficulty tags: lvl e (easy) / lvl m (medium) / lvl h (harder). Mirror the
+     instructor's problem types with NEW numbers/code. Each problem gets a work box. -->
+<div class="q"><span class="qn">N.1</span><span class="lvl e">easy</span> {{problem}}
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">N.2</span><span class="lvl m">medium</span> {{problem with given code/table}}
+<div class="two"><pre>{{template with blanks}}</pre><pre>{{given}}</pre></div>
+<div class="work l"></div></div>
+
+<!--SOLUTIONS-->
+<!-- One .sol per problem, SAME numbering. Show the work in the same format as the model answer. -->
+<div class="sol"><span class="qn">N.1</span>
+<pre>{{worked solution: every step visible, final answer clearly marked}}</pre>
+{{optional "Trap:" line naming the mistake most people make}}</div>
+
+<ul class="check"><li>{{self-check skill 1}}</li><li>{{self-check skill 2}}</li></ul>

@@ -1,0 +1,11 @@
+[
+  {
+    "n": "1",
+    "title": "{{Unit title}}",
+    "lectures": "Lectures {{L01–L02}}",
+    "facts": [
+      "{{Key fact needed to solve this unit's problems}}",
+      "{{3–6 facts per unit, each one line}}"
+    ]
+  }
+]

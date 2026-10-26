@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CISC 221 Mock Test</title>
+<link rel="stylesheet" href="style.css"></head>
+<body class="__MODE__">
+
+<div class="answerkey-banner">ANSWER KEY — answers in red, each followed by a short "Why" explanation.</div>
+<div class="cover">
+  <h1>CISC 221 — Mock Test: Machine-Level Programming (x86-64)</h1>
+  <div class="sub">Covers L09–L15 (including L14 arrays): data movement, addressing modes, arithmetic &amp; <code>leaq</code>, condition codes, branches, conditional moves, loops, switch/jump tables, procedures &amp; the stack, recursion, structs, unions, arrays, alignment and floating point.</div>
+</div>
+
+<div class="note testonly"><b>Instructions.</b> This mock is deliberately <i>longer</i> than the real quiz (about 185 raw marks, about 2 hours) so that it hits every question type the instructor uses. Assume x86-64 Linux, GCC, AT&amp;T syntax (<code>op Src, Dest</code>), and the standard calling convention: arguments in <code>%rdi, %rsi, %rdx, %rcx, %r8, %r9</code> and the return value in <code>%rax</code>. Unless a question says otherwise, all values are 8 bytes and all numbers are hexadecimal when written with <code>0x</code>. Show your work in the dashed boxes.</div>
+
+<div class="part">Part A — Multiple choice / short answer (1 mark each, 16 marks)</div>
+
+<div class="q"><span class="qn">A1.</span> The third integer argument of a function arrives in:
+<ul class="opts"><li>(a) <code>%rcx</code></li><li>(b) <code>%rdx</code></li><li>(c) <code>%rsi</code></li><li>(d) <code>%r8</code></li></ul>
+Answer: <span class="fill"><span class="a">(b) %rdx</span></span>
+<div class="exp">Argument order: %rdi, %rsi, %rdx, %rcx, %r8, %r9. Mnemonic: "<b>D</b>iane's <b>S</b>ilk <b>D</b>ress <b>C</b>osts <b>8</b> <b>9</b>$".</div></div>
+
+<div class="q"><span class="qn">A2.</span> <code>%rsp = 0x7ff0</code>. After <code>pushq %rbp</code>, <code>%rsp</code> equals: <span class="fill"><span class="a">0x7fe8</span></span>
+<div class="exp">push = decrement %rsp by 8, then write to (%rsp). The stack grows toward lower addresses.</div></div>
+
+<div class="q"><span class="qn">A3.</span> Which register is <b>callee-saved</b>?
+<ul class="opts"><li>(a) <code>%r10</code></li><li>(b) <code>%rcx</code></li><li>(c) <code>%rbx</code></li><li>(d) <code>%rax</code></li></ul>
+Answer: <span class="fill"><span class="a">(c) %rbx</span></span>
+<div class="exp">Callee-saved: %rbx, %rbp, %r12–%r15 (and %rsp is restored). Everything else (%rax, the 6 argument registers, %r10, %r11) is caller-saved.</div></div>
+
+<div class="q"><span class="qn">A4.</span> True or false: <code>leaq</code> sets the condition codes. <span class="fill"><span class="a">False</span></span>
+<div class="exp">leaq only computes an address expression; the slides say "Not set by leaq instruction." That is one reason compilers like it for arithmetic.</div></div>
+
+<div class="q"><span class="qn">A5.</span> After <code>cmpq %rsi, %rdi</code>, which jump is taken when <code>%rdi &gt; %rsi</code> as <b>unsigned</b> numbers?
+<ul class="opts"><li>(a) <code>jg</code></li><li>(b) <code>ja</code></li><li>(c) <code>jb</code></li><li>(d) <code>jge</code></li></ul>
+Answer: <span class="fill"><span class="a">(b) ja</span></span>
+<div class="exp">a/b (above/below) are unsigned and use CF. g/l (greater/less) are signed and use SF^OF.</div></div>
+
+<div class="q"><span class="qn">A6.</span> <code>testq %rax, %rax</code> followed by <code>jle .L5</code> jumps exactly when: <span class="fill w"><span class="a">%rax ≤ 0 (signed)</span></span>
+<div class="exp">test computes rax&amp;rax = rax and sets ZF/SF; OF is cleared. jle tests (SF^OF)|ZF = SF|ZF, which means negative or zero.</div></div>
+
+<div class="q"><span class="qn">A7.</span> <code>%rax = 0x1122334455667788</code>. After <code>movl $-1, %eax</code>, <code>%rax</code> = <span class="fill w"><span class="a">0x00000000FFFFFFFF</span></span>
+<div class="exp">Any instruction that writes a 32-bit register zeroes the upper 32 bits. (movw/movb would leave the other bytes unchanged.)</div></div>
+
+<div class="q"><span class="qn">A8.</span> Which of these is <b>not</b> a legal scale factor S in <code>D(Rb,Ri,S)</code>?
+<ul class="opts"><li>(a) 1</li><li>(b) 2</li><li>(c) 3</li><li>(d) 8</li></ul>
+Answer: <span class="fill"><span class="a">(c) 3</span></span>
+<div class="exp">S ∈ {1, 2, 4, 8}, matching the sizes of the primitive data types, so array indexing is a single instruction.</div></div>
+
+<div class="q"><span class="qn">A9.</span> On x86-64 the int <code>0x12345678</code> is stored at address <code>0x100</code>. The byte at <code>0x100</code> is: <span class="fill"><span class="a">0x78</span></span>
+<div class="exp">x86 is little endian: the least significant byte is stored at the lowest address.</div></div>
+
+<div class="q"><span class="qn">A10.</span> A function returning <code>double</code> leaves its result in: <span class="fill"><span class="a">%xmm0</span></span>
+<div class="exp">FP args go in %xmm0, %xmm1, … and the FP return value is in %xmm0. All XMM registers are caller-saved.</div></div>
+
+<div class="q"><span class="qn">A11.</span> GCC will <b>not</b> compile <code>v = p ? *p : 0;</code> with a conditional move because: <span class="fill ww"><span class="a">cmov evaluates both sides, so *p would be dereferenced even when p is NULL</span></span>
+<div class="exp">The bad cases for cmov are expensive computations, risky computations (null dereference) and side effects. Both values are always computed.</div></div>
+
+<div class="q"><span class="qn">A12.</span> Which tool turns <code>p1.s</code> into <code>p1.o</code>, and which one resolves references between <code>.o</code> files and libraries? <span class="fill ww"><span class="a">assembler (as/gcc); linker (ld/gcc)</span></span>
+<div class="exp">The pipeline is .c → compiler (gcc -Og -S) → .s → assembler → .o → linker (+ static libraries .a) → executable. objdump -d disassembles.</div></div>
+
+<div class="q"><span class="qn">A13.</span> "Cache size and clock frequency" belong to the: <span class="fill w"><span class="a">microarchitecture (not the ISA)</span></span>
+<div class="exp">ISA/architecture = what the assembly programmer sees (instructions, registers). Microarchitecture = how it is implemented.</div></div>
+
+<div class="q"><span class="qn">A14.</span> What does <code>ret</code> do, step by step? <span class="fill ww"><span class="a">pop the return address from (%rsp) (so %rsp += 8) and jump to it (%rip = it)</span></span>
+<div class="exp">call = push the address of the next instruction, then jump to the label. ret = the reverse.</div></div>
+
+<div class="q"><span class="qn">A15.</span> The 7th integer argument, at the moment the callee starts executing, is located at: <span class="fill w"><span class="a">8(%rsp)</span></span>
+<div class="exp">(%rsp) holds the return address pushed by call. Arguments 7, 8, … sit just above it: 8(%rsp), 16(%rsp), …</div></div>
+
+<div class="q"><span class="qn">A16.</span> Why does a switch statement use <code>ja</code> (unsigned) and not <code>jg</code> for its range check? <span class="fill ww"><span class="a">so a negative index looks like a huge unsigned number and also goes to default (one test covers both &lt;0 and &gt;max)</span></span>
+<div class="exp">cmpq $6,%rdi; ja .Ldefault catches both x &gt; 6 and x &lt; 0, because negative numbers are huge when read as unsigned.</div></div>
+
+<div class="part">Part B — Operand values (1 mark each, 10 marks)</div>
+<div class="q"><span class="qn">B1.</span> Memory holds 8-byte values and the registers hold the values shown. Give the <b>value</b> of each operand.
+<div class="two">
+<table><tr><th>Address</th><th>Value</th></tr>
+<tr><td>0x200</td><td>0x11</td></tr><tr><td>0x208</td><td>0x22</td></tr><tr><td>0x210</td><td>0x33</td></tr><tr><td>0x218</td><td>0x44</td></tr></table>
+<table><tr><th>Register</th><th>Value</th></tr>
+<tr><td>%rax</td><td>0x200</td></tr><tr><td>%rbx</td><td>0x8</td></tr><tr><td>%rcx</td><td>0x2</td></tr></table>
+</div>
+<table style="width:100%">
+<tr><th style="width:30%">Operand</th><th style="width:22%">Value</th><th class="keyonly">How</th></tr>
+<tr><td><code>%rax</code></td><td class="blank"><span class="a">0x200</span></td><td class="keyonly">register: its contents</td></tr>
+<tr><td><code>0x208</code></td><td class="blank"><span class="a">0x22</span></td><td class="keyonly">no $ means absolute memory address M[0x208]</td></tr>
+<tr><td><code>$0x210</code></td><td class="blank"><span class="a">0x210</span></td><td class="keyonly">$ means an immediate constant</td></tr>
+<tr><td><code>(%rax)</code></td><td class="blank"><span class="a">0x11</span></td><td class="keyonly">M[0x200]</td></tr>
+<tr><td><code>8(%rax)</code></td><td class="blank"><span class="a">0x22</span></td><td class="keyonly">M[0x200+8] = M[0x208]</td></tr>
+<tr><td><code>0x10(%rax,%rbx)</code></td><td class="blank"><span class="a">0x44</span></td><td class="keyonly">0x200+0x8+0x10 = 0x218</td></tr>
+<tr><td><code>(%rax,%rcx,8)</code></td><td class="blank"><span class="a">0x33</span></td><td class="keyonly">0x200 + 8·2 = 0x210</td></tr>
+<tr><td><code>0x1F8(,%rbx,1)</code></td><td class="blank"><span class="a">0x11</span></td><td class="keyonly">no base: 0x1F8 + 1·8 = 0x200</td></tr>
+<tr><td><code>-8(%rax,%rcx,8)</code></td><td class="blank"><span class="a">0x22</span></td><td class="keyonly">0x200 + 0x10 − 8 = 0x208</td></tr>
+<tr><td><code>0x200(%rbx,%rcx,4)</code></td><td class="blank"><span class="a">0x33</span></td><td class="keyonly">0x200 + 8 + 4·2 = 0x210</td></tr>
+</table>
+<div class="exp">Always compute the <i>address</i> first, D + Rb + S·Ri (in hex: 0x10 = 16), then look it up in the memory table. The traps are <code>$</code> (immediate, no memory access) and a bare number (absolute address, so memory <i>is</i> read).</div>
+</div>
+
+<div class="part">Part C — Suffixes and illegal instructions (12 marks)</div>
+<div class="q"><span class="qn">C1.</span> Fill in the suffix (b, w, l, q) from the operands. <span class="marks">[6]</span>
+<table>
+<tr><th>Instruction</th><th>Suffix</th><th class="keyonly">Reason</th></tr>
+<tr><td><code>mov__ %ax, (%rdi)</code></td><td class="blank"><span class="a">movw</span></td><td class="keyonly">%ax is 2 bytes</td></tr>
+<tr><td><code>mov__ $0x7, %r9d</code></td><td class="blank"><span class="a">movl</span></td><td class="keyonly">%r9d is the 4-byte part of %r9</td></tr>
+<tr><td><code>mov__ (%rsp,%rsi,8), %rcx</code></td><td class="blank"><span class="a">movq</span></td><td class="keyonly">destination %rcx is 8 bytes (registers in an address are always 64-bit and tell you nothing)</td></tr>
+<tr><td><code>mov__ %dl, 3(%rax)</code></td><td class="blank"><span class="a">movb</span></td><td class="keyonly">%dl is 1 byte</td></tr>
+<tr><td><code>mov__ %r12, %rbp</code></td><td class="blank"><span class="a">movq</span></td><td class="keyonly">64-bit registers</td></tr>
+<tr><td><code>mov__ (%rdx), %si</code></td><td class="blank"><span class="a">movw</span></td><td class="keyonly">%si is 2 bytes</td></tr>
+</table></div>
+
+<div class="q"><span class="qn">C2.</span> Each line makes the assembler report an error. Explain why. <span class="marks">[6]</span>
+<table style="width:100%">
+<tr><th style="width:36%">Instruction</th><th>What is wrong</th></tr>
+<tr><td><code>movq (%rax), (%rbx)</code></td><td class="blank"><span class="a">memory-to-memory move is not allowed in one instruction</span></td></tr>
+<tr><td><code>movl %rax, %edx</code></td><td class="blank"><span class="a">suffix l (4 bytes) does not match the 8-byte source %rax</span></td></tr>
+<tr><td><code>movw %ax, $0x10</code></td><td class="blank"><span class="a">an immediate cannot be a destination</span></td></tr>
+<tr><td><code>movq %rax, (%ecx)</code></td><td class="blank"><span class="a">cannot use the 32-bit %ecx as an address register (addresses are 64-bit)</span></td></tr>
+<tr><td><code>movl (%rsp,%rsp,4), %eax</code></td><td class="blank"><span class="a">%rsp cannot be the index register Ri</span></td></tr>
+<tr><td><code>addq (%rax,%rcx,3), %rdx</code></td><td class="blank"><span class="a">scale must be 1, 2, 4 or 8; 3 is illegal</span></td></tr>
+</table>
+<div class="exp">The instructor's checklist (Practice Problem 3.3): memory-to-memory, immediate as destination, suffix/register size mismatch, non-existent register name (e.g. %sl), 32-bit register used as an address, wrong destination size.</div></div>
+
+<div class="part">Part D — Moves with zero/sign extension (10 marks)</div>
+<div class="q"><span class="qn">D1.</span> <code>src_t *sp; dest_t *dp;</code> with <code>sp</code> in <code>%rdi</code> and <code>dp</code> in <code>%rsi</code>. Give the <b>two</b> instructions that implement <code>*dp = (dest_t) *sp;</code> using <code>%rax</code> (or the right part of it) as the temporary. <span class="marks">[2 each]</span>
+<table style="width:100%">
+<tr><th>src_t</th><th>dest_t</th><th>Instructions</th></tr>
+<tr><td>char</td><td>long</td><td class="blank"><span class="a">movsbq (%rdi), %rax ; movq %rax, (%rsi)</span></td></tr>
+<tr><td>unsigned short</td><td>int</td><td class="blank"><span class="a">movzwl (%rdi), %eax ; movl %eax, (%rsi)</span></td></tr>
+<tr><td>long</td><td>short</td><td class="blank"><span class="a">movq (%rdi), %rax ; movw %ax, (%rsi)</span></td></tr>
+<tr><td>unsigned char</td><td>unsigned</td><td class="blank"><span class="a">movzbl (%rdi), %eax ; movl %eax, (%rsi)</span></td></tr>
+<tr><td>int</td><td>long</td><td class="blank"><span class="a">movslq (%rdi), %rax ; movq %rax, (%rsi)</span></td></tr>
+</table>
+<div class="exp">Rules: (1) <b>Widening</b> uses the <b>source's</b> signedness: signed → movs__, unsigned → movz__. (2) <b>Narrowing</b>: read at the source size, then store the low part (movb %al, movw %ax). (3) Same size: plain mov. The suffix pair is (source size)(destination size), e.g. movsbq = sign-extend byte to quad. There is no movzlq, because movl to a 32-bit register already zeroes the top half.</div></div>
+
+<div class="part">Part E — Arithmetic and leaq (26 marks)</div>
+
+<div class="q"><span class="qn">E1.</span> <code>%rbx</code> holds x and <code>%rsi</code> holds y. Give a formula for what is stored in <code>%rax</code>. <span class="marks">[6]</span>
+<table>
+<tr><th>Instruction</th><th>Result</th></tr>
+<tr><td><code>leaq 3(%rbx), %rax</code></td><td class="blank"><span class="a">x + 3</span></td></tr>
+<tr><td><code>leaq (%rbx,%rsi,2), %rax</code></td><td class="blank"><span class="a">x + 2y</span></td></tr>
+<tr><td><code>leaq (%rsi,%rsi,8), %rax</code></td><td class="blank"><span class="a">9y</span></td></tr>
+<tr><td><code>leaq -5(%rbx,%rbx,4), %rax</code></td><td class="blank"><span class="a">5x − 5</span></td></tr>
+<tr><td><code>leaq 0x10(,%rsi,8), %rax</code></td><td class="blank"><span class="a">8y + 16</span></td></tr>
+<tr><td><code>leaq 2(%rsi,%rbx,4), %rax</code></td><td class="blank"><span class="a">y + 4x + 2</span></td></tr>
+</table>
+<div class="exp">leaq D(Rb,Ri,S) = D + Rb + S·Ri, with <b>no</b> memory access. Watch hex displacements (0x10 = 16, 0xA = 10).</div></div>
+
+<div class="q"><span class="qn">E2.</span> Memory and registers start as shown. Each instruction is <b>independent</b> (start from the original state each time). Give the destination (register or address) and the new value. <span class="marks">[9]</span>
+<div class="two">
+<table><tr><th>Address</th><th>Value</th></tr><tr><td>0x300</td><td>0x10</td></tr><tr><td>0x308</td><td>0x20</td></tr><tr><td>0x310</td><td>0x30</td></tr><tr><td>0x318</td><td>0x40</td></tr></table>
+<table><tr><th>Register</th><th>Value</th></tr><tr><td>%rax</td><td>0x300</td></tr><tr><td>%rcx</td><td>0x2</td></tr><tr><td>%rdx</td><td>0x8</td></tr></table>
+</div>
+<table style="width:100%">
+<tr><th style="width:36%">Instruction</th><th>Destination</th><th>Value</th></tr>
+<tr><td><code>addq %rdx, (%rax)</code></td><td class="blank"><span class="a">0x300</span></td><td class="blank"><span class="a">0x18</span></td></tr>
+<tr><td><code>subq %rcx, 8(%rax)</code></td><td class="blank"><span class="a">0x308</span></td><td class="blank"><span class="a">0x1E</span></td></tr>
+<tr><td><code>salq $2, (%rax,%rdx,2)</code></td><td class="blank"><span class="a">0x310</span></td><td class="blank"><span class="a">0xC0</span></td></tr>
+<tr><td><code>incq 0x18(%rax)</code></td><td class="blank"><span class="a">0x318</span></td><td class="blank"><span class="a">0x41</span></td></tr>
+<tr><td><code>decq %rdx</code></td><td class="blank"><span class="a">%rdx</span></td><td class="blank"><span class="a">0x7</span></td></tr>
+<tr><td><code>salq $3, %rcx</code></td><td class="blank"><span class="a">%rcx</span></td><td class="blank"><span class="a">0x10</span></td></tr>
+<tr><td><code>negq %rcx</code></td><td class="blank"><span class="a">%rcx</span></td><td class="blank"><span class="a">0xFFFFFFFFFFFFFFFE (−2)</span></td></tr>
+<tr><td><code>xorq %rax, %rax</code></td><td class="blank"><span class="a">%rax</span></td><td class="blank"><span class="a">0x0</span></td></tr>
+<tr><td><code>leaq 8(%rax,%rcx,8), %rdx</code></td><td class="blank"><span class="a">%rdx</span></td><td class="blank"><span class="a">0x318 (address, not M[0x318])</span></td></tr>
+</table>
+<div class="exp">The destination is always the <b>second</b> operand. "subq %rcx, 8(%rax)" means M[0x308] = M[0x308] − %rcx = 0x20 − 2 = 0x1E. (%rax,%rdx,2) = 0x300 + 16 = 0x310, and 0x30 &lt;&lt; 2 = 0xC0. The last row is the classic trap: leaq never reads memory.</div></div>
+
+<div class="q"><span class="qn">E3.</span> Fill in the C. Here x is in <code>%rdi</code>, y in <code>%rsi</code> and z in <code>%rdx</code>. <span class="marks">[5]</span>
+<div class="two"><pre>long arith3(long x, long y, long z) {
+    long t1 = ________;
+    long t2 = ________;
+    long t3 = ________;
+    long t4 = ________;
+    return t4;
+}</pre>
+<pre>arith3:
+  xorq  %rsi, %rdi
+  andq  $0xF0F, %rdi
+  leaq  (%rdx,%rdx,2), %rax
+  salq  $4, %rax
+  subq  %rdi, %rax
+  ret</pre></div>
+<pre class="a">t1 = x ^ y;            // xorq: rdi = x ^ y
+t3 = t1 &amp; 0xF0F;       // andq: rdi = t1 &amp; 0xF0F
+t2 = z * 48;           // leaq: 3z, then salq 4: 3z·16 = 48z
+t4 = t2 - t3;          // subq %rdi,%rax: rax = rax - rdi</pre>
+<div class="exp">Annotate each line with what the destination register now means (the instructor's method from the revision video). "subq A, B" means B = B − A. The order is reversed compared with C, so t4 = t2 − t3, not t3 − t2. 3·16 = 48.</div>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">E4.</span> Fill in the expression. Here x is in <code>%rdi</code>, y in <code>%rsi</code> and z in <code>%rdx</code>. <span class="marks">[2]</span>
+<div class="two"><pre>long scale3(long x, long y, long z) {
+    long t = ______________;
+    return t;
+}</pre>
+<pre>scale3:
+  leaq  (%rsi,%rsi,8), %rax
+  leaq  (%rax,%rdi,2), %rax
+  leaq  7(%rax,%rdx,4), %rax
+  ret</pre></div>
+<div class="a">t = 2*x + 9*y + 4*z + 7;</div>
+<div class="exp">Line 1: 9y. Line 2: 9y + 2x. Line 3: 9y + 2x + 4z + 7.</div></div>
+
+<div class="q"><span class="qn">E5.</span> Write a 2-instruction sequence that computes <code>x*20</code> (x in <code>%rdi</code>, result in <code>%rax</code>) <b>without</b> <code>imulq</code>. <span class="marks">[2]</span>
+<pre class="a">leaq (%rdi,%rdi,4), %rax    # 5x
+salq $2, %rax               # 5x · 4 = 20x</pre>
+<div class="exp">This is the same trick as the lecture's m12: leaq (%rdi,%rdi,2) then salq $2 gives 12x.</div>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">E6.</span> Fill in the operator. <span class="marks">[2]</span>
+<div class="two"><pre>#define OP ____
+long arith(long x) { return x OP 16; }</pre>
+<pre>arith:
+  leaq   15(%rdi), %rax
+  testq  %rdi, %rdi
+  cmovns %rdi, %rax
+  sarq   $4, %rax
+  ret</pre></div>
+(a) What is OP? <span class="fill"><span class="a">/  (division)</span></span> (b) Why the 15? <span class="fill ww"><span class="a">bias 2^4 − 1 is added for negative x so the shift rounds toward zero</span></span>
+<div class="exp">Same idea as Practice Problem 3.20. temp = x + 15; if x ≥ 0 (not sign), use x instead; then an arithmetic shift right by 4 = divide by 16 (rounding toward 0, as C requires).</div></div>
+
+<div class="part">Part F — Condition codes, set and compare (12 marks)</div>
+<div class="q"><span class="qn">F1.</span> <code>%rax = 5</code>, <code>%rbx = 7</code>. After <code>cmpq %rbx, %rax</code> give the flags, and say which jumps are taken. <span class="marks">[6]</span><br>
+ZF=<span class="fill" style="min-width:25pt"><span class="a">0</span></span> SF=<span class="fill" style="min-width:25pt"><span class="a">1</span></span> CF=<span class="fill" style="min-width:25pt"><span class="a">1</span></span> OF=<span class="fill" style="min-width:25pt"><span class="a">0</span></span>.
+Taken? <code>jl</code> <span class="fill" style="min-width:30pt"><span class="a">yes</span></span> <code>jb</code> <span class="fill" style="min-width:30pt"><span class="a">yes</span></span> <code>jg</code> <span class="fill" style="min-width:30pt"><span class="a">no</span></span> <code>ja</code> <span class="fill" style="min-width:30pt"><span class="a">no</span></span> <code>jne</code> <span class="fill" style="min-width:30pt"><span class="a">yes</span></span>
+<div class="exp">cmpq b,a computes a − b = 5 − 7 = −2. The result is not zero (ZF=0) and is negative (SF=1). As unsigned, 5 − 7 needs a borrow (CF=1). There is no signed overflow (OF=0). jl: SF^OF = 1, taken. jb: CF = 1, taken.</div></div>
+
+<div class="q"><span class="qn">F2.</span> Give ZF, SF, CF, OF after each 1-byte add. <span class="marks">[2]</span>
+<table><tr><th>Instruction (before: %al)</th><th>Result</th><th>ZF SF CF OF</th></tr>
+<tr><td><code>addb $0x01, %al</code> (al = 0x7F)</td><td class="blank"><span class="a">0x80</span></td><td class="blank"><span class="a">0 1 0 1</span></td></tr>
+<tr><td><code>addb $0x01, %al</code> (al = 0xFF)</td><td class="blank"><span class="a">0x00</span></td><td class="blank"><span class="a">1 0 1 0</span></td></tr></table>
+<div class="exp">0x7F + 1: 127 + 1 overflows signed (pos + pos = neg), so OF=1. There is no carry out of bit 7, so CF=0. 0xFF + 1: the carry out gives CF=1 (unsigned overflow), the result is 0 so ZF=1, and in signed terms −1 + 1 = 0 is fine, so OF=0.</div></div>
+
+<div class="q"><span class="qn">F3.</span> <code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Here a is in part of <code>%rdi</code> and b is in part of <code>%rsi</code>. For each sequence give the possible <code>data_t</code> and the <code>COMP</code>. <span class="marks">[4]</span>
+<table style="width:100%"><tr><th>Code</th><th>data_t</th><th>COMP</th></tr>
+<tr><td><code>cmpq %rsi,%rdi ; setle %al</code></td><td class="blank"><span class="a">long</span></td><td class="blank"><span class="a">&lt;=</span></td></tr>
+<tr><td><code>cmpw %si,%di ; seta %al</code></td><td class="blank"><span class="a">unsigned short</span></td><td class="blank"><span class="a">&gt;</span></td></tr>
+<tr><td><code>cmpb %sil,%dil ; setne %al</code></td><td class="blank"><span class="a">char or unsigned char</span></td><td class="blank"><span class="a">!=</span></td></tr>
+<tr><td><code>cmpl %esi,%edi ; setb %al</code></td><td class="blank"><span class="a">unsigned (int)</span></td><td class="blank"><span class="a">&lt;</span></td></tr></table>
+<div class="exp">The size comes from the suffix and the register (q=8 bytes: long, unsigned long or pointer; w=2: short; b=1: char; l=4: int). Signedness comes from the set: g/l = signed, a/b = unsigned, e/ne = either. "cmp b,a" then "setX" means "a X b" (read the operands backwards).</div></div>
+
+<div class="part">Part G — Branches and conditional moves (14 marks)</div>
+<div class="q"><span class="qn">G1.</span> Fill in the C. Here x is in <code>%rdi</code>, y in <code>%rsi</code> and z in <code>%rdx</code>. <span class="marks">[8]</span>
+<div class="two"><pre>long test(long x, long y, long z) {
+  long val = __________;
+  if (__________) {
+    if (__________)
+      val = __________;
+    else
+      val = __________;
+  } else if (__________)
+    val = __________;
+  return val;
+}</pre>
+<pre>test:
+  movq  %rdi, %rax
+  subq  %rdx, %rax
+  cmpq  %rsi, %rdi
+  jle   .L2
+  testq %rdx, %rdx
+  je    .L3
+  movq  %rdi, %rax
+  imulq %rdx, %rax
+  ret
+.L3:
+  leaq  5(%rsi), %rax
+  ret
+.L2:
+  cmpq  $10, %rsi
+  jle   .L4
+  movq  %rsi, %rax
+  subq  %rdi, %rax
+.L4:
+  ret</pre></div>
+<pre class="a">long val = x - z;
+if (x &gt; y) {            // jle .L2 skips this block when x &lt;= y
+  if (z != 0)           // testq z,z ; je .L3 skips when z == 0
+    val = x * z;
+  else
+    val = y + 5;        // .L3
+} else if (y &gt; 10)      // .L2: jle .L4 skips when y &lt;= 10
+  val = y - x;
+return val;</pre>
+<div class="exp">Use the revision-video method. (1) Annotate rax after each instruction. (2) A conditional jump goes to the code for the <b>opposite</b> of the C condition, so "jle .L2" means the then-block runs when x &gt; y. (3) Each "ret" closes one path. (4) The value computed before the first test is the initial val.</div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">G2.</span> Fill in the C, then answer the two questions. Here a is in <code>%rdi</code> and b in <code>%rsi</code>. <span class="marks">[6]</span>
+<div class="two"><pre>long f(long a, long b) {
+  return ________ ? ________ : ________;
+}</pre>
+<pre>f:
+  leaq   (%rdi,%rsi), %rax
+  movq   %rdi, %rdx
+  subq   %rsi, %rdx
+  cmpq   %rsi, %rdi
+  cmovge %rdx, %rax
+  ret</pre></div>
+<div class="a">return a &gt;= b ? a - b : a + b;</div>
+(a) Why could GCC use <code>cmov</code> here? <span class="fill ww"><span class="a">both arms are cheap and have no side effects or risky memory accesses</span></span><br>
+(b) Write the goto-style (branching) version of this function in C.
+<pre class="a">long f_goto(long a, long b) {
+  long result;
+  if (a &lt; b) goto Else;     // ntest = !(a &gt;= b)
+  result = a - b;
+  goto Done;
+Else:
+  result = a + b;
+Done:
+  return result;
+}</pre>
+<div class="exp">The cmov version computes both a+b and a−b first, then the cmov picks one. "cmovge" after "cmpq %rsi,%rdi" means "if a ≥ b, rax = rdx (a−b)". The branch version jumps on the negated test.</div>
+<div class="work m"></div></div>
+
+<div class="part">Part H — Loops (20 marks)</div>
+<div class="q"><span class="qn">H1.</span> n is in <code>%rdi</code>. <span class="marks">[5]</span>
+<div class="two"><pre>long dw(long n) {
+  long result = ____;
+  do {
+    result = ______;
+    n = ______;
+  } while (______);
+  return result;
+}</pre>
+<pre>dw:
+  movl  $1, %eax
+.L2:
+  imulq %rdi, %rax
+  subq  $2, %rdi
+  cmpq  $1, %rdi
+  jg    .L2
+  ret</pre></div>
+<pre class="a">result = 1;  do { result = result * n;  n = n - 2; } while (n &gt; 1);</pre>
+(a) dw(7) = <span class="fill"><span class="a">105</span></span> (b) dw(6) = <span class="fill"><span class="a">48</span></span> (c) dw(0) = <span class="fill"><span class="a">0</span></span>
+<div class="exp">A do-while has its test at the bottom, with no jump before the body. dw(7) = 7·5·3 = 105. dw(6) = 6·4·2 = 48. dw(0): the body runs once, so result = 1·0 = 0, then n = −2 fails the test.</div></div>
+
+<div class="q"><span class="qn">H2.</span> Here a is in <code>%rdi</code> and b in <code>%rsi</code>. <span class="marks">[5]</span>
+<div class="two"><pre>long loop_w(long a, long b) {
+  long result = ____;
+  while (______) {
+    result = ______;
+    a = ______;
+  }
+  return result;
+}</pre>
+<pre>loop_w:
+  movl  $0, %eax
+  jmp   .L2
+.L3:
+  leaq  (%rax,%rdi,2), %rax
+  subq  $1, %rdi
+.L2:
+  cmpq  %rsi, %rdi
+  jg    .L3
+  ret</pre></div>
+<pre class="a">result = 0;  while (a &gt; b) { result = result + 2*a;  a = a - 1; }</pre>
+(a) Which loop translation is this? <span class="fill w"><span class="a">jump-to-middle (-Og)</span></span> (b) loop_w(5, 2) = <span class="fill"><span class="a">24</span></span>
+<div class="exp">The unconditional "jmp .L2" straight to the test is the signature of jump-to-middle. 5 &gt; 2: +10, 4 &gt; 2: +8, 3 &gt; 2: +6, then 2 &gt; 2 fails. 10 + 8 + 6 = 24.</div></div>
+
+<div class="q"><span class="qn">H3.</span> Here x is in <code>%rdi</code> and y in <code>%rsi</code>. <span class="marks">[5]</span>
+<div class="two"><pre>long gd(long x, long y) {
+  long r = ____;
+  while (______) {
+    r = ______;
+    x = ______;
+  }
+  return r;
+}</pre>
+<pre>gd:
+  testq %rdi, %rdi
+  jle   .L4
+  movl  $0, %eax
+.L3:
+  addq  %rsi, %rax
+  sarq  %rdi
+  testq %rdi, %rdi
+  jg    .L3
+  ret
+.L4:
+  movl  $0, %eax
+  ret</pre></div>
+<pre class="a">r = 0;  while (x &gt; 0) { r = r + y;  x = x &gt;&gt; 1; }</pre>
+(a) Translation used? <span class="fill w"><span class="a">guarded-do / do-while conversion (-O1)</span></span> (b) gd(5, 3) = <span class="fill"><span class="a">9</span></span>
+<div class="exp">The test before the loop that jumps past it is the "guard" (if (!Test) goto done), then a do-while. A shift with one operand (sarq %rdi) shifts by 1. x = 5 → 2 → 1 → 0 gives three iterations, so 3·3 = 9.</div></div>
+
+<div class="q"><span class="qn">H4.</span> Write this as a <b>for</b> loop, then rewrite it as a <b>while</b> loop. n is in <code>%rdi</code>. <span class="marks">[3]</span>
+<pre>sum_sq:
+  movl  $0, %eax
+  movl  $1, %edx
+  jmp   .L2
+.L3:
+  movq  %rdx, %rcx
+  imulq %rdx, %rcx
+  addq  %rcx, %rax
+  addq  $1, %rdx
+.L2:
+  cmpq  %rdi, %rdx
+  jle   .L3
+  ret</pre>
+<pre class="a">long sum_sq(long n) {               long sum_sq_w(long n) {
+  long sum = 0;                       long sum = 0;
+  for (long i = 1; i &lt;= n; i++)       long i = 1;          // Init
+    sum += i * i;                     while (i &lt;= n) {     // Test
+  return sum;                           sum += i * i;      // Body
+}                                       i++;               // Update
+                                      }
+                                      return sum;
+                                    }        sum_sq(3) = 1 + 4 + 9 = 14</pre>
+<div class="exp">for (Init; Test; Update) Body ≡ Init; while (Test) { Body; Update; }. The "addq $1" just before the test is the Update.</div>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">H5.</span> Describe in English what this function computes. x is an unsigned long in <code>%rdi</code>. <span class="marks">[2]</span>
+<pre>fun_c:
+  movl  $0, %eax
+  jmp   .L2
+.L3:
+  addq  $1, %rax
+  leaq  -1(%rdi), %rdx
+  andq  %rdx, %rdi
+.L2:
+  testq %rdi, %rdi
+  jne   .L3
+  ret</pre>
+<div class="a">It counts the 1-bits in x (popcount). Each pass does x = x &amp; (x−1), which clears the lowest set bit, and adds 1 to the count until x is 0.</div>
+<div class="exp">The C is: long c = 0; while (x) { c++; x &amp;= x - 1; } return c;. The lecture does popcount differently (x &amp; 1 then x &gt;&gt;= 1), but the result is the same.</div></div>
+
+<div class="part">Part I — Switch statements (10 marks)</div>
+<div class="q"><span class="qn">I1.</span> Here x is in <code>%rdi</code>, y in <code>%rsi</code> and dest in <code>%rdx</code>.
+<div class="two"><pre>void sw(long x, long y, long *dest) {
+  long val;
+  switch (x) {
+    case ___:   /* A */
+      y = ______;
+      /* fall through */
+    case ___:   /* B */
+      val = ______;
+      break;
+    case ___:   /* C */
+    case ___:   /* D */
+      val = ______;
+      break;
+    default:
+      val = ______;
+  }
+  *dest = val;
+}</pre>
+<pre>sw:
+  subq  $10, %rdi
+  cmpq  $5, %rdi
+  ja    .L2
+  jmp   *.L4(,%rdi,8)
+.L3:
+  leaq  (%rsi,%rsi,2), %rsi
+.L6:
+  leaq  1(%rsi), %rax
+  jmp   .L7
+.L5:
+  movq  %rsi, %rax
+  salq  $3, %rax
+  jmp   .L7
+.L2:
+  movl  $0, %eax
+.L7:
+  movq  %rax, (%rdx)
+  ret
+
+# jump table
+.L4:
+  .quad .L3    # index 0
+  .quad .L2    # index 1
+  .quad .L5    # index 2
+  .quad .L6    # index 3
+  .quad .L2    # index 4
+  .quad .L5    # index 5</pre></div>
+(a) Fill in the C. <span class="marks">[6]</span>
+<pre class="a">case 10: y = 3*y;         /* fall through into case 13 */
+case 13: val = y + 1; break;
+case 12:
+case 15: val = y &lt;&lt; 3; break;     // or y*8
+default: val = 0;</pre>
+(b) Which values of x go to default? <span class="fill ww"><span class="a">x &lt; 10, x = 11, x = 14, x &gt; 15</span></span> <span class="marks">[2]</span><br>
+(c) sw(10, 4, &amp;v) stores <span class="fill"><span class="a">13</span></span>; sw(15, 4, &amp;v) stores <span class="fill"><span class="a">32</span></span> <span class="marks">[2]</span>
+<div class="exp">(1) "subq $10" means the smallest case is 10, so table index i is case 10 + i. (2) "cmpq $5" with ja means the largest case is 10 + 5 = 15; anything outside the range (including negatives, via unsigned) goes to .L2 = default. (3) Table entries pointing to the default label are the missing cases (11, 14). (4) Two entries pointing to the same label are shared cases (12, 15 → .L5). (5) A block with no jmp at its end that runs into the next block is a fall-through (.L3 → .L6). sw(10,4): y = 12, val = 13. sw(15,4): 4·8 = 32.</div>
+<div class="work l"></div></div>
+
+<div class="part">Part J — Procedures, the stack, recursion (22 marks)</div>
+<div class="q"><span class="qn">J1.</span> Inside <code>main</code>, the instruction <code>callq 400600 &lt;f&gt;</code> is at address <code>0x400520</code> and is 5 bytes long. Just before it executes, <code>%rsp = 0x7fffffffe830</code>. <span class="marks">[4]</span>
+<table><tr><th></th><th>%rsp</th><th>%rip</th><th>M[%rsp]</th></tr>
+<tr><td>Right after the call</td><td class="blank"><span class="a">0x7fffffffe828</span></td><td class="blank"><span class="a">0x400600</span></td><td class="blank"><span class="a">0x400525</span></td></tr>
+<tr><td>Right after f's <code>ret</code></td><td class="blank"><span class="a">0x7fffffffe830</span></td><td class="blank"><span class="a">0x400525</span></td><td class="blank"><span class="a">(unchanged caller data)</span></td></tr></table>
+<div class="exp">The return address is the address of the next instruction: 0x400520 + 5 = 0x400525. call pushes it (rsp − 8) and sets rip to the target. ret pops it back into rip (rsp + 8).</div></div>
+
+<div class="q"><span class="qn">J2.</span> Read the C and the assembly, then answer. <span class="marks">[6]</span>
+<div class="two"><pre>long swap_add(long *xp, long *yp) {
+  long x = *xp, y = *yp;
+  *xp = y;  *yp = x;
+  return x + y;
+}
+long caller(void) {
+  long arg1 = 534, arg2 = 1057;
+  long sum  = swap_add(&amp;arg1, &amp;arg2);
+  long diff = arg1 - arg2;
+  return sum * diff;
+}</pre>
+<pre>caller:
+  subq  $16, %rsp
+  movq  $534, (%rsp)
+  movq  $1057, 8(%rsp)
+  leaq  8(%rsp), %rsi
+  movq  %rsp, %rdi
+  call  swap_add
+  movq  (%rsp), %rdx
+  subq  8(%rsp), %rdx
+  imulq %rdx, %rax
+  addq  $16, %rsp
+  ret</pre></div>
+(a) Why are arg1 and arg2 on the stack and not in registers? <span class="fill ww"><span class="a">their addresses are taken (&amp;arg1, &amp;arg2); a register has no address</span></span><br>
+(b) At which offsets from <code>%rsp</code> do arg1 and arg2 live? <span class="fill w"><span class="a">arg1 at 0(%rsp), arg2 at 8(%rsp)</span></span><br>
+(c) What does caller() return? <span class="fill"><span class="a">832093</span></span>
+<div class="exp">After the swap arg1 = 1057 and arg2 = 534. sum = 1591 and diff = 1057 − 534 = 523, so 1591 × 523 = 832,093. "subq $16,%rsp" allocates the frame's local storage and "addq $16,%rsp" frees it before ret. This is the same pattern as call_incr in lecture.</div></div>
+
+<div class="q"><span class="qn">J3.</span> Read the C and the assembly, then answer. <span class="marks">[6]</span>
+<div class="two"><pre>long P(long x, long y) {
+  long u = Q(y);
+  long v = Q(x);
+  return u + v;
+}</pre>
+<pre>P:
+  pushq %rbp
+  pushq %rbx
+  subq  $8, %rsp
+  movq  %rdi, %rbp
+  movq  %rsi, %rdi
+  call  Q
+  movq  %rax, %rbx
+  movq  %rbp, %rdi
+  call  Q
+  addq  %rbx, %rax
+  addq  $8, %rsp
+  popq  %rbx
+  popq  %rbp
+  ret</pre></div>
+(a) What do <code>%rbp</code> and <code>%rbx</code> hold during P? <span class="fill ww"><span class="a">%rbp = x (saved for the 2nd call); %rbx = u (the 1st result)</span></span><br>
+(b) Why does P use %rbp/%rbx and not, for example, %rcx/%r10? <span class="fill ww"><span class="a">they are callee-saved, so Q must preserve them; Q may clobber caller-saved %rcx/%r10</span></span><br>
+(c) Why does P push them at the start and pop them in reverse order? <span class="fill ww"><span class="a">P is itself a callee and must restore its caller's values; the stack is LIFO</span></span>
+<div class="exp">Key rule: a value needed after a call must live in a callee-saved register (or on the stack). Using a callee-saved register costs a push/pop pair in the function that uses it. "subq $8" keeps %rsp 16-byte aligned at the call; it is not part of your answer here.</div></div>
+
+<div class="q"><span class="qn">J4.</span> x is in <code>%rdi</code>. <span class="marks">[6]</span>
+<div class="two"><pre>long rprod(long x) {
+  if (__________)
+    return ____;
+  long nx = __________;
+  long rv = rprod(nx);
+  return __________;
+}</pre>
+<pre>rprod:
+  movl  $1, %eax
+  cmpq  $1, %rdi
+  jle   .L2
+  pushq %rbx
+  movq  %rdi, %rbx
+  subq  $2, %rdi
+  call  rprod
+  imulq %rbx, %rax
+  popq  %rbx
+.L2:
+  ret</pre></div>
+<pre class="a">if (x &lt;= 1) return 1;      // i.e. x &lt; 2
+long nx = x - 2;
+return x * rv;</pre>
+(a) What value is kept in <code>%rbx</code>? <span class="fill w"><span class="a">x (the original argument)</span></span> (b) rprod(7) = <span class="fill"><span class="a">105</span></span><br>
+(c) When the innermost call rprod(1) starts, how many bytes below its value at the entry of rprod(7) is <code>%rsp</code>? <span class="fill"><span class="a">48</span></span>
+<div class="exp">Same structure as Practice Problem 3.35 (rfun). Each level that recurses pushes %rbx (8) and then the call pushes a return address (8), so 16 bytes per level. rprod(7) → rprod(5) → rprod(3) → rprod(1) is 3 levels, so 3 × 16 = 48 bytes. 7·5·3·1 = 105.</div></div>
+
+<div class="part">Part K — Data: arrays, structs, unions, alignment, FP, nested &amp; multi-level arrays (34 marks)</div>
+<div class="q"><span class="qn">K1.</span> Fill in the table. <span class="marks">[5]</span>
+<pre>char A[12];   int *B[5];   long C[6];   float D[10];   short **E[3];</pre>
+<table style="width:100%"><tr><th>Array</th><th>Element size</th><th>Total size</th><th>Address of element i</th></tr>
+<tr><td>A</td><td class="blank"><span class="a">1</span></td><td class="blank"><span class="a">12</span></td><td class="blank"><span class="a">x_A + i</span></td></tr>
+<tr><td>B</td><td class="blank"><span class="a">8</span></td><td class="blank"><span class="a">40</span></td><td class="blank"><span class="a">x_B + 8i</span></td></tr>
+<tr><td>C</td><td class="blank"><span class="a">8</span></td><td class="blank"><span class="a">48</span></td><td class="blank"><span class="a">x_C + 8i</span></td></tr>
+<tr><td>D</td><td class="blank"><span class="a">4</span></td><td class="blank"><span class="a">40</span></td><td class="blank"><span class="a">x_D + 4i</span></td></tr>
+<tr><td>E</td><td class="blank"><span class="a">8</span></td><td class="blank"><span class="a">24</span></td><td class="blank"><span class="a">x_E + 8i</span></td></tr></table>
+<div class="exp">Any pointer (int *, short **) is 8 bytes on x86-64, whatever it points to. Total = element size × count.</div></div>
+
+<div class="q"><span class="qn">K2.</span> <code>int A[]</code> starts at x<sub>A</sub>, held in <code>%rdx</code>, and the long i is in <code>%rcx</code>. Pointer results go in <code>%rax</code> and int results in <code>%eax</code>. <span class="marks">[6]</span>
+<table style="width:100%"><tr><th>Expression</th><th>Type</th><th>Value</th><th>Assembly</th></tr>
+<tr><td><code>A+2</code></td><td class="blank"><span class="a">int *</span></td><td class="blank"><span class="a">x_A + 8</span></td><td class="blank"><span class="a">leaq 8(%rdx), %rax</span></td></tr>
+<tr><td><code>A[4]</code></td><td class="blank"><span class="a">int</span></td><td class="blank"><span class="a">M[x_A + 16]</span></td><td class="blank"><span class="a">movl 16(%rdx), %eax</span></td></tr>
+<tr><td><code>&amp;A[i]</code></td><td class="blank"><span class="a">int *</span></td><td class="blank"><span class="a">x_A + 4i</span></td><td class="blank"><span class="a">leaq (%rdx,%rcx,4), %rax</span></td></tr>
+<tr><td><code>A[2*i+3]</code></td><td class="blank"><span class="a">int</span></td><td class="blank"><span class="a">M[x_A + 8i + 12]</span></td><td class="blank"><span class="a">movl 12(%rdx,%rcx,8), %eax</span></td></tr>
+<tr><td><code>*(A+i-1)</code></td><td class="blank"><span class="a">int</span></td><td class="blank"><span class="a">M[x_A + 4i − 4]</span></td><td class="blank"><span class="a">movl -4(%rdx,%rcx,4), %eax</span></td></tr>
+<tr><td><code>&amp;A[i] - A</code></td><td class="blank"><span class="a">long</span></td><td class="blank"><span class="a">i</span></td><td class="blank"><span class="a">movq %rcx, %rax</span></td></tr></table>
+<div class="exp">Pointer arithmetic scales by the element size (4 for int). Taking an address (&amp;, or array+k) means leaq; reading an element means mov. Subtracting two pointers gives an element count of type long (ptrdiff_t). This mirrors Practice Problem 3.37.</div></div>
+
+<div class="q"><span class="qn">K3.</span> Give the field offsets, the alignment K and the total size. Then reorder the fields to minimise the size. <span class="marks">[5]</span>
+<pre>struct P { char a; int b; char c; double d; short e; };</pre>
+a <span class="fill" style="min-width:35pt"><span class="a">0</span></span> b <span class="fill" style="min-width:35pt"><span class="a">4</span></span> c <span class="fill" style="min-width:35pt"><span class="a">8</span></span> d <span class="fill" style="min-width:35pt"><span class="a">16</span></span> e <span class="fill" style="min-width:35pt"><span class="a">24</span></span> K = <span class="fill" style="min-width:35pt"><span class="a">8</span></span> size = <span class="fill" style="min-width:35pt"><span class="a">32</span></span><br>
+Minimal reordering and its size: <span class="fill ww"><span class="a">double d; int b; short e; char a; char c; → 16 bytes</span></span>
+<div class="exp">Each field's offset must be a multiple of its own size: a@0, pad 3, b@4, c@8, pad 7, d@16, e@24, ending at 26. The total must be a multiple of K = 8 (the largest field), so 26 rounds up to 32. Putting the largest types first gives 8 + 4 + 2 + 1 + 1 = 16, already a multiple of 8.</div></div>
+
+<div class="q"><span class="qn">K4.</span> <code>struct node { int val; struct node *next; short tag[3]; };</code> <span class="marks">[4]</span><br>
+(a) Offsets of val, next, tag, and sizeof: <span class="fill ww"><span class="a">val 0, next 8, tag 16; sizeof = 24</span></span><br>
+(b) Write assembly for <code>short g(struct node *n) { return n-&gt;next-&gt;tag[1]; }</code>, with n in <code>%rdi</code>.
+<pre class="a">g:
+  movq   8(%rdi), %rax      # rax = n-&gt;next
+  movzwl 18(%rax), %eax     # tag at 16, + 1*2 = 18
+                            # (movw 18(%rax),%ax is also accepted)
+  ret</pre>
+<div class="exp">The 8-byte pointer must start at a multiple of 8, so there are 4 padding bytes after val. tag ends at 22, which rounds up to 24 (K = 8). This is the same access pattern as the lecture's linked-list example (movq 24(%rdi),%rdi follows r-&gt;next).</div>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">K5.</span> <code>union U { char c[8]; int i[2]; double d; };</code> sizeof(U) = <span class="fill"><span class="a">8</span></span>. The same fields as a <code>struct</code>: sizeof = <span class="fill"><span class="a">24</span></span> <span class="marks">[2]</span>
+<div class="exp">A union is as big as its largest member, and all fields start at offset 0 and share storage. In the struct: c 0–7, i 8–15, d 16–23, so 24 bytes.</div></div>
+
+<div class="q"><span class="qn">K6.</span> For <code>double g(long n, double x, int k, float y)</code>, where does each argument arrive? <span class="marks">[2]</span>
+<span class="fill ww"><span class="a">n: %rdi, x: %xmm0, k: %esi, y: %xmm1; result in %xmm0</span></span><br>
+What is the difference between <code>addss</code>, <code>addsd</code> and <code>addps</code>? <span class="fill ww"><span class="a">scalar single (1 float), scalar double (1 double), packed single (4 floats at once, SIMD)</span></span>
+<div class="exp">Integer and pointer arguments use the integer registers in order, and FP arguments use the XMM registers in their own separate order.</div></div>
+
+<div class="q"><span class="qn">K7.</span> <code>int A[4][5];</code> starts at address x. <span class="marks">[3]</span><br>
+sizeof(A) = <span class="fill"><span class="a">80</span></span>
+&amp;A[2][3] = <span class="fill"><span class="a">x + 52</span></span>
+A[3] (the row, used as a pointer) = <span class="fill"><span class="a">x + 60</span></span>
+<div class="exp">Row-major order: &amp;A[i][j] = x + K·(i·C + j) = x + 4·(2·5 + 3) = x + 52. A row is C·K = 20 bytes, so A[3] starts at x + 60. Size = R·C·K = 4·5·4 = 80.</div></div>
+
+<div class="q"><span class="qn">K8.</span> Use reverse engineering to find the constants M and N. Here i is in <code>%rdi</code> and j in <code>%rsi</code>. <span class="marks">[4]</span>
+<div class="two"><pre>long P[M][N];
+long Q[N][M];
+long f(long i, long j) {
+  return P[i][j] + Q[j][i];
+}</pre>
+<pre>f:
+  leaq  (%rdi,%rdi,2), %rax
+  addq  %rax, %rax
+  addq  %rsi, %rax
+  leaq  (%rsi,%rsi,8), %rdx
+  addq  %rdi, %rdx
+  movq  P(,%rax,8), %rax
+  addq  Q(,%rdx,8), %rax
+  ret</pre></div>
+M = <span class="fill"><span class="a">9</span></span> N = <span class="fill"><span class="a">6</span></span>
+<div class="exp">This is the same exercise as the L14 sum_element example. rax = 3i, then 6i, then 6i + j, so P's index is i·N + j and N = 6. rdx = 9j, then 9j + i, so Q's index is j·M + i and M = 9. The scale 8 confirms long elements. The row length of a [R][C] array is always C, the <b>second</b> dimension.</div>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">K9.</span> <code>int *U[3];</code> (each element points to an int array of 5 elements) and <code>int G[3][5];</code>. <span class="marks">[3]</span><br>
+(a) How many memory reads does <code>U[i][j]</code> need, and how many does <code>G[i][j]</code> need? <span class="fill ww"><span class="a">U: 2 (read the pointer U[i], then the int). G: 1 (one address computation)</span></span><br>
+(b) Write assembly for <code>int getU(size_t i, size_t j) { return U[i][j]; }</code>, with i in <code>%rdi</code> and j in <code>%rsi</code>.
+<pre class="a">getU:
+  salq  $2, %rsi             # 4*j
+  addq  U(,%rdi,8), %rsi     # p = U[i] + 4*j     (1st memory read: the pointer)
+  movl  (%rsi), %eax         # return *p           (2nd memory read: the int)
+  ret</pre>
+<div class="exp">A multi-level array element is at Mem[Mem[U + 8i] + 4j]. A nested array element is at Mem[G + 20i + 4j]. The two look the same in C but compile very differently.</div>
+<div class="work s"></div></div>
+
+<div class="note testonly" style="margin-top:14pt"><b>End of mock test.</b> Check your answers with the answer key PDF. Every answer there comes with a "Why" explanation.</div>
+<div class="good keyonly" style="margin-top:14pt"><b>Scoring guide.</b> A ≈ 16, B 10, C 12, D 10, E 26, F 12, G 14, H 20, I 10, J 22, K 34, for about 186 raw marks. Scale to 100. If you lost marks in E, G, H or I, rework Practice Problems 3.5–3.11 and 3.16–3.31 in the master reference. If you lost marks in J, rework 3.35 and the call_incr / pcount_r traces. If you lost marks in K, rework 3.36, 3.37, the L14 nested-array examples and the alignment section.</div>
+</body></html>

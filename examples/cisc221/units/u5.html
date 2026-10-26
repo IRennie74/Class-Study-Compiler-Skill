@@ -1,0 +1,204 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — stack, call/ret, frames, recursion</h4>
+<ol>
+<li><b>Stack traces:</b> keep a table with columns <b>instruction | %rip | %rsp | top of stack | key registers</b>. Use these rules:
+  <ul><li>push: rsp −= 8, then write.</li><li>pop: read, then rsp += 8.</li><li>call: push (call address + call length), then rip = target.</li><li>ret: rip = M[rsp], then rsp += 8.</li></ul></li>
+<li><b>Argument location:</b> count the integer/pointer arguments in order: %rdi, %rsi, %rdx, %rcx, %r8, %r9 (use the size-matched name, e.g. %esi for an int). Arguments 7+ are at 8(%rsp), 16(%rsp), … when the callee starts. Floating-point arguments use %xmm0, %xmm1, … with their own separate count.</li>
+<li><b>Locals on the stack:</b> <code>subq $N,%rsp</code> allocates the space, and <code>k(%rsp)</code> is a local. A local goes on the stack when its <b>address is taken</b> (leaq k(%rsp)), or when it is an array or struct. Draw the frame from high addresses (return address) down to %rsp.</li>
+<li><b>Register-saving:</b> a value needed <i>after</i> a call must live in a callee-saved register (rbx, rbp, r12–r15) or on the stack. Using a callee-saved register means push it in the prologue and pop it, in reverse order, in the epilogue.</li>
+<li><b>Recursion → C:</b> answer four questions.
+  <ol type="a"><li>Base case: which test jumps straight to ret, and what is %rax then?</li>
+  <li>Saved value: what goes into %rbx (or another callee-saved register)?</li>
+  <li>Recursive argument: how is %rdi changed before the call?</li>
+  <li>Combine: what is done to %rax after the call?</li></ol></li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer (3.35 rfun)</h4>
+<pre>rfun:                      x in %rdi
+  pushq %rbx               save the caller's rbx (callee-saved)
+  movq  %rdi,%rbx          rbx = x            ← (b) the saved value is x
+  movl  $0,%eax            rax = 0
+  testq %rdi,%rdi
+  je    .L2                if x == 0 → return 0      ← (a) base case
+  shrq  $2,%rdi            rdi = x &gt;&gt; 2       ← (c) nx = x &gt;&gt; 2
+  call  rfun               rax = rv = rfun(nx)
+  addq  %rbx,%rax          rax = x + rv       ← (d) combine
+.L2:
+  popq  %rbx               restore
+  ret
+
+C:  long rfun(unsigned long x) {
+      if (x == 0) return 0;
+      unsigned long nx = x &gt;&gt; 2;
+      long rv = rfun(nx);
+      return x + rv;
+    }
+Check: rfun(20) = 20 + rfun(5) = 20 + 5 + rfun(1) = 20 + 5 + 1 + rfun(0) = 26</pre>
+<p><b>Stack-trace table format</b> (3.32 style):</p>
+<pre>Label  PC        Instruction        %rdi   %rax   %rsp        *%rsp      Description
+M1     0x400560  callq 400510       100    —      0x...e820   —          call top(100)
+T1     0x400510  sub $0x5,%rdi      95     —      0x...e818   0x400565   entry of top</pre></div>
+<div class="deck"><b>From the practice deck, also do:</b> Problem 22 (3.35). Lecture must-knows: multstore/mult2 control flow, call_incr, call_incr2 (callee-saved), and the pcount_r trace with x = 0110.</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">5.1</span><span class="lvl e">easy</span> %rsp = 0x8000, %rax = 0xA and %rbx = 0xB. Run <code>pushq %rax ; pushq %rbx ; popq %rax ; popq %rbx</code>. Give %rax, %rbx and %rsp at the end, and the contents of 0x7FF8 and 0x7FF0.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">5.2</span><span class="lvl m">medium</span> Fill in a trace table (PC, instruction, %rdi, %rax, %rsp, *%rsp) from main's call until control returns to 0x400565. Before the call: %rsp = 0x7fffffffe820 and %rdi = 100.
+<pre>0000000000400500 &lt;leaf&gt;:                     0000000000400510 &lt;top&gt;:
+  400500: lea  0x2(%rdi),%rax                  400510: sub   $0x5,%rdi
+  400504: retq                                 400514: callq 400500 &lt;leaf&gt;
+                                               400519: add   %rax,%rax
+main:                                          40051c: retq
+  400560: callq 400510 &lt;top&gt;
+  400565: mov   %rax,%rdx</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">5.3</span><span class="lvl e">easy</span> <code>void proc(long a1, int a2, short a3, char a4, long *a5, int *a6, long a7, char a8, double d1, float f2);</code> Where is each argument when proc starts executing? Use the size-correct register names.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">5.4</span><span class="lvl m">medium</span> <code>void addto(long *dst, long *src) { *dst += *src; }</code>. For the function below: (a) draw the stack frame, (b) give the values of the locals after the call, (c) give the return value, and (d) write the C.
+<pre>frame:
+  subq  $24, %rsp
+  movq  $5, 8(%rsp)
+  movq  $9, 16(%rsp)
+  leaq  16(%rsp), %rsi
+  leaq  8(%rsp), %rdi
+  call  addto
+  movq  8(%rsp), %rax
+  imulq 16(%rsp), %rax
+  addq  $24, %rsp
+  ret</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">5.5</span><span class="lvl m">medium</span> Write the assembly for <code>long twice(long x) { long a = f(x); long b = f(a + x); return a * b + x; }</code>. Use callee-saved registers correctly, and explain which values must survive which calls.
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">5.6</span><span class="lvl m">medium</span> n is in %rdi. Write the C, give rs(3), and find how many bytes %rsp has dropped when rs(0) starts, compared with the entry of rs(3).
+<pre>rs:   movl  $0, %eax
+      testq %rdi, %rdi
+      jle   .L1
+      pushq %rbx
+      movq  %rdi, %rbx
+      leaq  -1(%rdi), %rdi
+      call  rs
+      leaq  (%rax,%rbx,2), %rax
+      popq  %rbx
+.L1:  ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">5.7</span><span class="lvl m">medium</span> For the lecture's pcount_r with x = 5 (101₂), give a call table: for each level, the incoming %rdi, the value stored in %rbx, and the %rax it returns.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">5.8</span><span class="lvl e">easy</span> True or false, with a reason for each.
+(a) A callee may freely change %r12 without saving it.
+(b) After a call, the caller can trust that %rcx is unchanged.
+(c) %rax is caller-saved.
+(d) A function that calls nothing and uses only %rax, %rdi and %rsi needs no push or pop.
+(e) Local arrays always live in registers.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">5.9</span><span class="lvl h">harder</span> Here x is in %rdi. Write the C (base case, saved value, recursive argument, combine), and give rf(13).
+<pre>rf:   pushq %rbx
+      movq  %rdi, %rbx
+      movl  $1, %eax
+      cmpq  $1, %rdi
+      jbe   .L2
+      shrq  %rdi
+      call  rf
+      andl  $1, %ebx
+      leaq  (%rbx,%rax,2), %rax
+.L2:  popq  %rbx
+      ret</pre>
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">5.1</span>
+<pre>pushq %rax   rsp = 0x7FF8, M[0x7FF8] = 0xA
+pushq %rbx   rsp = 0x7FF0, M[0x7FF0] = 0xB
+popq  %rax   rax = 0xB,  rsp = 0x7FF8
+popq  %rbx   rbx = 0xA,  rsp = 0x8000
+Final: rax = 0xB, rbx = 0xA (swapped), rsp = 0x8000; memory still holds 0x7FF8: 0xA, 0x7FF0: 0xB
+(pop does not erase memory).</pre></div>
+
+<div class="sol"><span class="qn">5.2</span>
+<pre>PC        Instruction          %rdi  %rax  %rsp            *%rsp      Note
+0x400560  callq top            100   —     0x7fffffffe820  —          main calls top
+0x400510  sub $0x5,%rdi        95    —     0x7fffffffe818  0x400565   entered top (ret addr pushed)
+0x400514  callq leaf           95    —     0x7fffffffe818  0x400565   top calls leaf
+0x400500  lea 0x2(%rdi),%rax   95    97    0x7fffffffe810  0x400519   entered leaf
+0x400504  retq                 95    97    0x7fffffffe810  0x400519   leaf returns
+0x400519  add %rax,%rax        95    194   0x7fffffffe818  0x400565   back in top
+0x40051c  retq                 95    194   0x7fffffffe818  0x400565   top returns
+0x400565  mov %rax,%rdx        95    194   0x7fffffffe820  —          back in main
+Convention: %rsp and *%rsp are the values when the instruction STARTS; %rdi and %rax are
+after it runs. State which convention you use on the quiz.</pre></div>
+
+<div class="sol"><span class="qn">5.3</span>
+<pre>a1 %rdi   a2 %esi   a3 %dx   a4 %cl   a5 %r8   a6 %r9   a7 8(%rsp)   a8 16(%rsp)
+d1 %xmm0  f2 %xmm1     (FP arguments do not use up integer slots; (%rsp) = return address)</pre></div>
+
+<div class="sol"><span class="qn">5.4</span>
+<pre>(a) higher addresses
+    | return address |  ← 24(%rsp)
+    | b = 9          |  ← 16(%rsp)
+    | a = 5          |  ←  8(%rsp)
+    | (unused)       |  ←  0(%rsp) = %rsp
+(b) addto(&amp;a, &amp;b): a += b → a = 14, b = 9
+(c) a·b = 14·9 = 126
+(d) long frame(void) { long a = 5, b = 9; addto(&amp;a, &amp;b); return a * b; }
+    a and b are on the stack because their addresses are passed (&amp;a, &amp;b).</pre></div>
+
+<div class="sol"><span class="qn">5.5</span>
+<pre>twice:
+  pushq %rbp              # we will use rbp and rbx → save the caller's values
+  pushq %rbx
+  subq  $8, %rsp          # keep 16-byte alignment at the calls (optional detail)
+  movq  %rdi, %rbp        # x must survive BOTH calls → callee-saved %rbp
+  call  f                 # rax = a
+  movq  %rax, %rbx        # a must survive the 2nd call → callee-saved %rbx
+  leaq  (%rax,%rbp), %rdi # arg = a + x
+  call  f                 # rax = b
+  imulq %rbx, %rax        # a*b
+  addq  %rbp, %rax        # + x
+  addq  $8, %rsp
+  popq  %rbx              # reverse order of the pushes
+  popq  %rbp
+  ret
+x is needed after both calls; a is needed after the second. b is used immediately, so it needs
+no saving. Any two of rbx, rbp, r12–r15 are fine.</pre></div>
+
+<div class="sol"><span class="qn">5.6</span>
+<pre>(a) base: n ≤ 0 → return 0   (b) saved: rbx = n   (c) arg: n − 1   (d) combine: rax + 2·rbx
+long rs(long n) { if (n &lt;= 0) return 0; long rv = rs(n - 1); return rv + 2*n; }
+rs(3) = 6 + rs(2) = 6 + 4 + rs(1) = 6 + 4 + 2 + 0 = 12   (in general n(n+1))
+Stack: each recursing level pushes rbx (8) + a return address (8) = 16 bytes.
+rs(3) → rs(2) → rs(1) → rs(0) is 3 levels × 16 = 48 bytes.</pre></div>
+
+<div class="sol"><span class="qn">5.7</span>
+<pre>level  %rdi in   rbx stored (x &amp; 1)   returns %rax
+1      101₂=5    1                    1 + 1 = 2
+2      10₂=2     0                    0 + 1 = 1
+3      1         1                    1 + 0 = 1
+4      0         (base, no push)      0
+Result pcount_r(5) = 2.</pre></div>
+
+<div class="sol"><span class="qn">5.8</span>
+<pre>(a) False: %r12 is callee-saved, so the callee must push and pop it if it uses it.
+(b) False: %rcx is an argument register (caller-saved) and may be overwritten.
+(c) True: it holds the return value and anyone may overwrite it.
+(d) True: only caller-saved registers are used, and there is no call to protect.
+(e) False: arrays (and anything whose address is taken) live in memory (the stack frame).</pre></div>
+
+<div class="sol"><span class="qn">5.9</span>
+<pre>(a) base: x ≤ 1 (unsigned, jbe) → return 1   — note the push happens BEFORE the test, so .L2 pops
+(b) saved: rbx = x   (c) arg: x &gt;&gt; 1   (d) combine: (x &amp; 1) + 2·rv
+unsigned long rf(unsigned long x) {
+  if (x &lt;= 1) return 1;
+  unsigned long rv = rf(x &gt;&gt; 1);
+  return 2*rv + (x &amp; 1);
+}
+rf(13): 13 → 6 → 3 → 1 (base = 1).  Returns: rf(3) = 2·1 + 1 = 3; rf(6) = 2·3 + 0 = 6;
+        rf(13) = 2·6 + 1 = 13.   (For x ≥ 1 it rebuilds x bit by bit, so it returns x.)</pre></div>
+
+<ul class="check"><li>I update %rsp by exactly 8 for each push/pop/call/ret.</li><li>The return address = the call address + the call instruction's length.</li><li>I know where args 1–6, 7+ and FP args go.</li><li>I explain callee-saved usage as "the value must survive a call".</li><li>I answer recursion with base / saved / arg / combine.</li></ul>

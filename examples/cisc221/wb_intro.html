@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CISC 221 Problem Workbook</title>
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="cover">
+<h1>CISC 221 — Unit-by-Unit Problem Workbook</h1>
+<div class="sub">Machine-Level Programming (x86-64), L09–L15. 70+ quiz-style problems organised by unit, each with the solving method, the exact "show your work" format to use, and fully worked solutions.</div>
+</div>
+
+<div class="note"><b>How to use this workbook.</b> The test is all problems, so this book is too. For each unit:
+<ol><li>Read the <b>key facts</b> box (half a page). If something is unclear, look it up in the Concepts Notes (PDF 5).</li>
+<li>Study the <b>solving method</b> and the <b>show-your-work model answer</b>. This is the format to copy onto the quiz.</li>
+<li>Do the <b>practice set</b> on paper, in the boxes, <b>without looking</b> at the solutions. Problems are tagged <span class="lvl e">easy</span> <span class="lvl m">medium</span> <span class="lvl h">harder</span>.</li>
+<li>Turn the page and mark your work against the <b>worked solutions</b>. Compare your <i>steps</i>, not just your final answer.</li>
+<li>Then do the instructor's practice-deck problems listed in the purple box (solutions are in the Master Reference, section D).</li></ol>
+A mixed, quiz-style set covering all units is at the end. After that, sit the full Mock Test (PDF 1).</div>
+
+<h2>The universal rules for showing your work</h2>
+<p>Whatever the question, the grader wants to see your <b>reasoning chain</b>. These seven habits get you full marks, and part marks when an arithmetic slip happens:</p>
+<table>
+<tr><th style="width:4%">#</th><th style="width:30%">Habit</th><th>What it looks like on paper</th></tr>
+<tr><td>1</td><td>Write the register map first</td><td><code>x → %rdi, y → %rsi, z → %rdx</code> (from the prototype)</td></tr>
+<tr><td>2</td><td>Annotate every instruction</td><td>Next to each line: <code>rax = x + 2y</code> (the destination's new value, in the original variables)</td></tr>
+<tr><td>3</td><td>Show address arithmetic</td><td><code>Addr = 0x10 + 0x100 + 4·2 = 0x118 → M[0x118] = 0x11</code></td></tr>
+<tr><td>4</td><td>Label control flow</td><td>On each conditional jump, write both edges: "jump if x ≥ y | fall-through x &lt; y ⇒ if (x &lt; y)"</td></tr>
+<tr><td>5</td><td>Name the loop parts</td><td>INIT / BODY / UPDATE / TEST, and circle the back-edge; say which translation (do-while, jump-to-middle, guarded-do)</td></tr>
+<tr><td>6</td><td>Use a table for traces and layouts</td><td>A state table for move/stack traces; a layout table (field, size, align, offset, pad) for structs; index→case→label for switches</td></tr>
+<tr><td>7</td><td>Check with numbers, then box the answer</td><td>Pick small inputs, run your C and the annotated assembly, and confirm they match. Write the final C/value clearly, separate from the scratch work.</td></tr>
+</table>
+
+<div class="warn"><b>Five errors that cost the most marks.</b> (1) Reading <code>subq a,b</code> as a − b (it is b − a). (2) Writing the jump's condition as the C if-test (it is usually the negation). (3) Mixing decimal and hex displacements (260 = 0x104). (4) Forgetting that leaq never reads memory. (5) Signed vs unsigned: g/l vs a/b, sar vs shr, movs vs movz.</div>
+
+<h2>What's inside</h2>
+<table>
+<tr><th>Unit</th><th>Topic</th><th>Lectures</th><th>Practice-deck problems to add</th></tr>
+<tr><td>1</td><td>Registers, operands, addressing, mov</td><td>L09–L10</td><td>3.1, 3.2, 3.3, 3.4, 3.5</td></tr>
+<tr><td>2</td><td>Arithmetic, leaq, reverse-engineering</td><td>L10</td><td>3.6, 3.7, 3.8, 3.10, 3.11</td></tr>
+<tr><td>3</td><td>Condition codes, branches, cmov</td><td>L11</td><td>3.13, 3.16, 3.18, 3.20, 3.21</td></tr>
+<tr><td>4</td><td>Loops and switch</td><td>L11–L12</td><td>3.23, 3.24, 3.25, 3.26, 3.28, 3.31</td></tr>
+<tr><td>5</td><td>Procedures and recursion</td><td>L12–L13</td><td>3.35</td></tr>
+<tr><td>6</td><td>Arrays (1-D, nested, multi-level)</td><td>L14</td><td>3.36, 3.37</td></tr>
+<tr><td>7</td><td>Structs, unions, alignment, FP</td><td>L15</td><td>(lecture examples)</td></tr>
+<tr><td>R</td><td>Mixed quiz-style review</td><td>all</td><td>then the Mock Test (PDF 1)</td></tr>
+</table>

@@ -1,0 +1,156 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — arrays</h4>
+<ol>
+<li><b>Write the type size K first</b> (char 1, short 2, int 4, long/double/any pointer 8).</li>
+<li><b>1-D:</b> &amp;A[i] = x<sub>A</sub> + K·i. Total size = K·L.</li>
+<li><b>Expression tables (3.37 style):</b> decide the <b>type</b> first. A pointer (A+k, &amp;A[i]) means the value is an address and the instruction is <code>leaq</code> into %rax. An element (A[k], *(A+i)) means the value is M[address] and the instruction is <code>mov</code> with the element's suffix into the right-sized register (%ax for short, %eax for int, %rax for long).</li>
+<li><b>Nested T A[R][C]:</b> &amp;A[i][j] = x<sub>A</sub> + K·(i·C + j). Only C matters. A row A[i] starts at x<sub>A</sub> + i·C·K.</li>
+<li><b>Finding dimensions from assembly:</b> annotate until you see the index expression (e.g. 7i + j). The multiplier of the first index is the number of <b>columns</b> of that array. Do this separately for each array.</li>
+<li><b>Multi-level (T *A[]):</b> element = M[ M[x<sub>A</sub> + 8i] + K·j ], which is two memory reads.</li>
+<li>The scale must be 1, 2, 4 or 8. For K·(something) with a larger factor, the compiler first computes the index with leaq or a shift.</li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer (L14 sum_element: find M and N)</h4>
+<pre>long A[M][N];  long B[N][M];   return A[i][j] + B[j][i];     i → rdi, j → rsi, K = 8
+leaq (,%rdi,8),%rdx      rdx = 8i
+subq %rdi,%rdx           rdx = 7i
+addq %rsi,%rdx           rdx = 7i + j        ← index into A = i·N + j  ⇒ N = 7
+leaq (%rsi,%rsi,4),%rax  rax = 5j
+addq %rax,%rdi           rdi = 5j + i        ← index into B = j·M + i  ⇒ M = 5
+movq B(,%rdi,8),%rax     rax = M[B + 8(5j + i)]   = B[j][i]
+addq A(,%rdx,8),%rax     rax += M[A + 8(7i + j)]  = A[i][j]
+Answer: M = 5, N = 7</pre>
+<p><b>Address question format:</b> "&amp;A[2][3] = x<sub>A</sub> + K(i·C + j) = x + 4(2·5 + 3) = x + 52."</p></div>
+<div class="deck"><b>From the practice deck, also do:</b> Problem 23 (3.36), Problem 24 (3.37). Lecture must-knows: get_digit, zincr, get_pgh_zip, get_pgh_digit, get_univ_digit, fix_ele vs var_ele, and sum_element.</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">6.1</span><span class="lvl e">easy</span> Give the element size, the total size and &amp;element i for: <code>long L[5]; char *P[6]; unsigned short U[9]; double D[4]; int **Q[2];</code>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">6.2</span><span class="lvl m">medium</span> <code>long A[]</code> is at x<sub>A</sub> in %rdi, and the long i is in %rsi. Give the type, the value, and assembly that puts the result in %rax.
+<pre>(a) A+3    (b) A[1]    (c) &amp;A[i+2]    (d) A[2*i]    (e) *(A+i) - 1    (f) &amp;A[i] - &amp;A[1]</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">6.3</span><span class="lvl e">easy</span> <code>short M[6][10]</code> is at x. Give sizeof(M), &amp;M[3][4], the start of row M[5], and a general formula for &amp;M[i][j].
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">6.4</span><span class="lvl m">medium</span> Write the assembly for <code>int G[5][7]; int get(long i, long j) { return G[i][j]; }</code> (i in %rdi, j in %rsi) without imul.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">6.5</span><span class="lvl h">harder</span> Find R and S. Here i is in %rdi and j in %rsi.
+<div class="two"><pre>int X[R][S];
+int Y[S][R];
+int h(long i, long j) {
+  return X[i][j] - Y[j][i];
+}</pre><pre>h:  leaq (%rdi,%rdi,4), %rax
+    leaq (%rsi,%rax,2), %rax
+    movq %rsi, %rdx
+    salq $2, %rdx
+    addq %rdi, %rdx
+    movl X(,%rax,4), %eax
+    subl Y(,%rdx,4), %eax
+    ret</pre></div>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">6.6</span><span class="lvl m">medium</span> <code>int *T[4];</code> (each points to an int array). (a) Write the assembly for <code>int gt(long i, long j) { return T[i][j]; }</code>. (b) How many memory reads does it need? (c) Why can the rows of T have different lengths, while the rows of <code>int N[4][6]</code> cannot?
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">6.7</span><span class="lvl m">medium</span> Write -Og (jump-to-middle) assembly for <code>void zero(long *a, long n) { for (long i = 0; i &lt; n; i++) a[i] = 0; }</code>.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">6.8</span><span class="lvl m">medium</span> <code>#define N 12</code>, <code>long fm(long a[N][N], long i, long j) { return a[i][j]; }</code>, with a in %rdi, i in %rsi and j in %rdx. Give the address formula and the assembly (no imul). Then explain what changes for <code>long vm(long n, long a[n][n], long i, long j)</code>.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">6.9</span><span class="lvl h">harder</span> Write the C for this loop. a is a long * in %rdi and n is in %rsi.
+<pre>sumpos:  movl  $0, %eax
+         movl  $0, %edx
+         jmp   .L2
+.L4:     movq  (%rdi,%rdx,8), %rcx
+         testq %rcx, %rcx
+         jle   .L3
+         addq  %rcx, %rax
+.L3:     addq  $1, %rdx
+.L2:     cmpq  %rsi, %rdx
+         jl    .L4
+         ret</pre>
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">6.1</span>
+<pre>long L[5]            8   40   x + 8i
+char *P[6]           8   48   x + 8i     (a pointer, even to char)
+unsigned short U[9]  2   18   x + 2i
+double D[4]          8   32   x + 8i
+int **Q[2]           8   16   x + 8i</pre></div>
+
+<div class="sol"><span class="qn">6.2</span>
+<pre>(a) A+3          long *   x + 24          leaq 24(%rdi), %rax
+(b) A[1]         long     M[x + 8]        movq 8(%rdi), %rax
+(c) &amp;A[i+2]      long *   x + 8i + 16     leaq 16(%rdi,%rsi,8), %rax
+(d) A[2*i]       long     M[x + 16i]      leaq (%rsi,%rsi), %rax       # 2i  (scale 16 does not exist!)
+                                          movq (%rdi,%rax,8), %rax
+(e) *(A+i) - 1   long     M[x + 8i] − 1   movq (%rdi,%rsi,8), %rax
+                                          subq $1, %rax
+(f) &amp;A[i]-&amp;A[1]  long     i − 1           leaq -1(%rsi), %rax          # pointer difference in elements</pre></div>
+
+<div class="sol"><span class="qn">6.3</span>
+<pre>sizeof = 6·10·2 = 120
+&amp;M[3][4] = x + 2(3·10 + 4) = x + 68
+M[5] starts at x + 5·10·2 = x + 100
+&amp;M[i][j] = x + 2(10i + j) = x + 20i + 2j</pre></div>
+
+<div class="sol"><span class="qn">6.4</span>
+<pre>get:  leaq 0(,%rdi,8), %rax     # 8i
+      subq %rdi, %rax           # 7i
+      addq %rsi, %rax           # 7i + j
+      movl G(,%rax,4), %eax     # M[G + 4(7i + j)]
+      ret</pre></div>
+
+<div class="sol"><span class="qn">6.5</span>
+<pre>rax = 5i → rax = j + 2·5i = 10i + j      → X's index = i·S + j  ⇒ S = 10
+rdx = j → 4j → 4j + i                    → Y's index = j·R + i  ⇒ R = 4
+movl X(,%rax,4) = X[i][j];  subl Y(,%rdx,4) = − Y[j][i]
+Answer: R = 4, S = 10.  (Remember X is [R][S], so X's row length is S; Y is [S][R], so its row length is R.)</pre></div>
+
+<div class="sol"><span class="qn">6.6</span>
+<pre>(a) gt:  salq $2, %rsi                # 4j
+         addq T(,%rdi,8), %rsi        # p = T[i] + 4j     (read #1: the pointer)
+         movl (%rsi), %eax            # *p                (read #2: the int)
+         ret
+(b) 2 reads.
+(c) Each T[i] is a separate pointer, so each row is its own array, anywhere in memory and of any
+    length. N[4][6] is one contiguous block, and the compiler uses the fixed row length 6 in
+    the address formula.</pre></div>
+
+<div class="sol"><span class="qn">6.7</span>
+<pre>zero:  movl  $0, %eax             # i = 0
+       jmp   .L2                  # goto test
+.L3:   movq  $0, (%rdi,%rax,8)    # a[i] = 0
+       addq  $1, %rax             # i++
+.L2:   cmpq  %rsi, %rax           # i : n
+       jl    .L3                  # if i &lt; n loop
+       ret</pre></div>
+
+<div class="sol"><span class="qn">6.8</span>
+<pre>Address = a + 8(12i + j) = a + 96i + 8j
+fm:  leaq (%rsi,%rsi,2), %rax     # 3i
+     salq $5, %rax                # 96i   (3i · 32)
+     addq %rax, %rdi              # a + 96i
+     movq (%rdi,%rdx,8), %rax     # M[a + 96i + 8j]
+     ret
+vm: n is not known at compile time, so it must use imulq (n·i), as in the lecture's var_ele:
+     imulq %rdx,%rdi ; leaq (%rsi,%rdi,8),%rax ; movq (%rax,%rcx,8),%rax
+     (n in %rdi, a in %rsi, i in %rdx, j in %rcx)</pre></div>
+
+<div class="sol"><span class="qn">6.9</span>
+<pre>INIT rax = 0 (sum), rdx = 0 (i) │ jmp test → jump-to-middle
+BODY: rcx = a[i]; if (rcx &gt; 0) sum += rcx   (jle .L3 skips the add when a[i] ≤ 0)
+UPDATE i++ │ TEST i &lt; n
+long sumpos(long *a, long n) {
+  long sum = 0;
+  for (long i = 0; i &lt; n; i++)
+    if (a[i] &gt; 0) sum += a[i];
+  return sum;
+}</pre></div>
+
+<ul class="check"><li>I find K before anything else.</li><li>I use leaq for addresses and mov for elements.</li><li>For [R][C], I use C (not R) in the formula.</li><li>I read the dimensions from the index multipliers.</li><li>I remember that multi-level arrays need two reads.</li></ul>

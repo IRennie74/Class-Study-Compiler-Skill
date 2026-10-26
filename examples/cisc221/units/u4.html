@@ -1,0 +1,270 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — loops</h4>
+<ol>
+<li><b>Find the loop:</b> circle every jump to an <i>earlier</i> label (the back-edge). The code between that label and the back-edge is the loop.</li>
+<li><b>Classify the translation:</b>
+<table><tr><th>You see</th><th>It is</th></tr>
+<tr><td>no jump before the loop label; the test is only at the bottom</td><td>do-while</td></tr>
+<tr><td><code>jmp .Ltest</code> right before the body (the test is at the bottom)</td><td>while, jump-to-middle (-Og)</td></tr>
+<tr><td>a test before the loop that jumps <i>past</i> it, then the same test at the bottom</td><td>while, guarded-do (-O1)</td></tr></table></li>
+<li><b>Label the parts:</b> <b>Init</b> = the movs before the loop. <b>Test</b> = the cmp/test + back-edge jump (the C condition is the jump's condition, because the back-edge is taken when the loop continues). <b>Update</b> = the add/sub of the counter just before the test. <b>Body</b> = the rest.</li>
+<li><b>Write it as a while.</b> Convert to a for if there is a clear Init/Test/Update on one variable.</li>
+<li><b>Trace a small input</b> in an iteration table to check your answer and to answer "what does it compute?".</li>
+</ol>
+<h4>Solving method — switch</h4>
+<ol><li><b>Offset</b> k from <code>subq $k</code> / <code>addq $−k</code> / <code>leaq −k(%rdi)</code>. Without one, k = 0. Table index i ↔ case i + k.</li>
+<li><b>Max</b> case = (the constant in <code>cmpq $n</code>) + k. <code>ja</code> → the default label.</li>
+<li>Write a mapping table: <b>index → case value → label</b>.</li>
+<li>Entries that equal the default label are <b>missing</b> cases. Labels that appear twice are <b>shared</b> cases.</li>
+<li>Translate each label's block. A block with no jmp/ret at its end <b>falls through</b> into the next label.</li></ol></div>
+
+<div class="showwork"><h4>How to show your work: model answer (3.24 style)</h4>
+<pre>Map: a → rdi, b → rsi
+loop_while:
+  movl $1,%eax             result = 1                  INIT
+  jmp  .L2                 → jump-to-middle (-Og)
+.L3:                       ◄──────────────┐ loop top
+  leaq (%rdi,%rsi),%rdx    rdx = a + b    │            BODY
+  imulq %rdx,%rax          result *= a+b  │
+  addq $1,%rdi             a = a + 1      │            UPDATE
+.L2:                                      │
+  cmpq %rsi,%rdi           a : b          │            TEST
+  jl   .L3                 if a &lt; b ──────┘ (back-edge → while (a &lt; b))
+  ret                      return result
+
+C:  long result = 1;  while (a &lt; b) { result = result * (a + b);  a = a + 1; }  return result;
+
+Iteration table (a=1, b=3):   iter  a   test a&lt;b   result
+                              0     1   yes        1·(1+3) = 4
+                              1     2   yes        4·(2+3) = 20
+                              2     3   no  → return 20</pre>
+<p><b>Switch mapping table</b> (write this every time):</p>
+<pre>index  case(=index+k)  label   meaning
+0      10              .L3     case 10
+1      11              .Ldef   missing → default
+...</pre></div>
+<div class="deck"><b>From the practice deck, also do:</b> Problem 15 (3.23), 17 (3.24), 18 (3.25), 19 (3.26), 20 (3.28), 21 (3.31 switch). Also learn the lecture's pcount_do, pcount_while and switch_eg.</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">4.1</span><span class="lvl e">easy</span> Classify each skeleton as do-while, jump-to-middle or guarded-do.
+<pre>(A)  movl $0,%eax         (B)  testq %rdi,%rdi        (C)  movl $0,%eax
+     jmp .L2                   jle .L5                   .L3:
+.L3: ...                       movl $0,%eax                   ...
+.L2: cmpq ... ; jl .L3    .L4: ...                            testq %rdi,%rdi
+     ret                       testq %rdi,%rdi ; jg .L4      jne .L3
+                               ret                            ret
+                          .L5: movl $0,%eax ; ret</pre>
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">4.2</span><span class="lvl m">medium</span> Write the C (do-while), then give p(7) and p(−2). x is in %rdi.
+<pre>p:    movl  $0, %eax
+.L2:  addq  %rdi, %rax
+      subq  $3, %rdi
+      testq %rdi, %rdi
+      jg    .L2
+      ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">4.3</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in the template <code>long result = __; while (__) { result = __; a = __; } return result;</code>, then say what the function computes and give q(3, 2).
+<pre>q:    movl  $1, %eax
+      jmp   .L2
+.L3:  imulq %rsi, %rax
+      subq  $1, %rdi
+.L2:  testq %rdi, %rdi
+      jg    .L3
+      ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">4.4</span><span class="lvl m">medium</span> n is in %rdi. Identify the translation, write the C as a <b>for</b> loop, and give r(4). What does r compute in general?
+<pre>r:    testq %rdi, %rdi
+      jle   .L4
+      movl  $0, %eax
+      movl  $0, %edx
+.L3:  leaq  1(%rax,%rdx,2), %rax
+      addq  $1, %rdx
+      cmpq  %rdx, %rdi
+      jg    .L3
+      ret
+.L4:  movl  $0, %eax
+      ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">4.5</span><span class="lvl m">medium</span> For <code>long fact(long n) { long r = 1; for (long i = 2; i &lt;= n; i++) r *= i; return r; }</code>, write (a) the while version, (b) the guarded-do goto version, and (c) plausible -O1 assembly.
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">4.6</span><span class="lvl m">medium</span> x is an unsigned long in %rdi. Write the C, then describe in English what the function computes. Give fun(8) and fun(5).
+<pre>fun:  movl  $0, %eax
+      jmp   .L2
+.L3:  addq  $1, %rax
+      shrq  %rdi
+.L2:  testq %rdi, %rdi
+      jne   .L3
+      ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">4.7</span><span class="lvl m">medium</span> Here a is in %rdi and b in %rsi. Fill in <code>long result = __; while (__) { result = __; a = __; }</code>, then give lw(1, 6) with an iteration table.
+<pre>lw:   movl  $0, %eax
+      jmp   .L2
+.L3:  movq  %rdi, %rdx
+      imulq %rsi, %rdx
+      addq  %rdx, %rax
+      addq  $2, %rdi
+.L2:  cmpq  %rsi, %rdi
+      jl    .L3
+      ret</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">4.8</span><span class="lvl h">harder</span> x is an unsigned long in %rdi. Write the C, describe what it computes, and give tz(8) and tz(12).
+<pre>tz:   movl  $0, %eax
+      testq %rdi, %rdi
+      je    .L4
+      jmp   .L2
+.L3:  shrq  %rdi
+      addq  $1, %rax
+.L2:  testq $1, %rdi
+      je    .L3
+.L4:  ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">4.9</span><span class="lvl h">harder</span> (3.28 style.) <code>unsigned long f(unsigned long x) { unsigned long val = 0; long i; for (__; __; __) { __ } return val; }</code>
+<pre>f:    movl  $8, %edx
+      movl  $0, %eax
+.L2:  movq  %rdi, %rcx
+      andl  $15, %ecx
+      salq  $4, %rax
+      orq   %rcx, %rax
+      shrq  $4, %rdi
+      subq  $1, %rdx
+      jne   .L2
+      ret</pre>
+(a) Fill in the for loop. (b) Why is there no test before the loop? (c) What is f(0x12345678)? Describe the function in English.
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">4.10</span><span class="lvl h">harder</span> (3.31 style.) Here x is in %rdi and y in %rsi. Fill in the switch, then give s(4,5), s(6,5) and s(3,5).
+<div class="two"><pre>long s(long x, long y) {
+  switch (x) {
+    case __:
+    case __:  return ______;
+    case __:  y = ______;
+              /* fall through */
+    case __:  return ______;
+    default:  return ______;
+  }
+}</pre><pre>s:    subq  $2, %rdi
+      cmpq  $4, %rdi
+      ja    .L6
+      jmp   *.L4(,%rdi,8)
+.L3:  leaq  (%rsi,%rsi), %rax
+      ret
+.L5:  addq  $10, %rsi
+.L7:  leaq  -1(%rsi), %rax
+      ret
+.L6:  movl  $0, %eax
+      ret
+.L4:  .quad .L3, .L6, .L5, .L3, .L7</pre></div>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">4.11</span><span class="lvl m">medium</span> From the setup and the table alone: which case values exist, which share code, which are missing, and which x values reach default?
+<pre>addq $3, %rdi ; cmpq $6, %rdi ; ja .Ld ; jmp *.T(,%rdi,8)
+.T: .quad .L5, .Ld, .L6, .L7, .L5, .Ld, .L8</pre>
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">4.1</span>
+<pre>(A) jump-to-middle: an unconditional jmp to the test before the body
+(B) guarded-do: a test jumps past the loop, and the same test repeats at the bottom
+(C) do-while: the body runs first, and the test is only at the bottom</pre></div>
+
+<div class="sol"><span class="qn">4.2</span>
+<pre>INIT result = 0 │ .L2: BODY result += x ; UPDATE x -= 3 │ TEST x &gt; 0 → back-edge (jg)
+long p(long x) { long result = 0; do { result += x; x -= 3; } while (x &gt; 0); return result; }
+p(7):  x=7 → r=7, x=4 → r=11, x=1 → r=12, x=−2 stop → 12
+p(−2): the body runs ONCE (do-while): r = −2, x = −5 stop → −2</pre></div>
+
+<div class="sol"><span class="qn">4.3</span>
+<pre>result = 1; while (a &gt; 0) { result = result * b; a = a - 1; } return result;
+Computes b^a (b to the power a, for a ≥ 0).   q(3,2) = 2·2·2 = 8
+(jmp .L2 first → jump-to-middle; testq + jg → the test is a &gt; 0)</pre></div>
+
+<div class="sol"><span class="qn">4.4</span>
+<pre>Guarded-do (the test n &gt; 0 before the loop, then cmpq/jg at the bottom).
+.L3: rax = rax + 2·rdx + 1  → s += 2*i + 1 ;  rdx++ → i++ ;  cmpq %rdx,%rdi ; jg → n &gt; i, i.e. i &lt; n
+long r(long n) { long s = 0; for (long i = 0; i &lt; n; i++) s += 2*i + 1; return s; }
+r(4) = 1 + 3 + 5 + 7 = 16.  In general it sums the first n odd numbers = n².</pre>
+Trap: <code>cmpq %rdx,%rdi</code> computes rdi − rdx = n − i, so jg means n &gt; i.</div>
+
+<div class="sol"><span class="qn">4.5</span>
+<pre>(a) long r = 1; long i = 2;
+    while (i &lt;= n) { r *= i; i++; }
+(b) long r = 1; long i = 2;
+    if (!(i &lt;= n)) goto done;      // i.e. if (n &lt; 2) goto done
+  loop:
+    r *= i;  i++;
+    if (i &lt;= n) goto loop;
+  done:
+    return r;
+(c) fact:  movl  $1, %eax
+           cmpq  $1, %rdi
+           jle   .L1              # n ≤ 1 → done
+           movl  $2, %edx         # i = 2
+    .L3:   imulq %rdx, %rax
+           addq  $1, %rdx
+           cmpq  %rdx, %rdi       # n : i
+           jge   .L3              # n ≥ i → loop
+    .L1:   ret</pre></div>
+
+<div class="sol"><span class="qn">4.6</span>
+<pre>long fun(unsigned long x) { long c = 0; while (x) { c++; x &gt;&gt;= 1; } return c; }
+It counts how many bits are needed to write x (the position of the highest 1-bit;
+floor(log2 x) + 1, and 0 for x = 0).  fun(8) = 4 (1000₂), fun(5) = 3 (101₂)</pre></div>
+
+<div class="sol"><span class="qn">4.7</span>
+<pre>result = 0; while (a &lt; b) { result = result + a*b; a = a + 2; }
+lw(1,6):  a  test   result
+          1  1&lt;6    0 + 6  = 6
+          3  3&lt;6    6 + 18 = 24
+          5  5&lt;6   24 + 30 = 54
+          7  7&lt;6 no → return 54</pre></div>
+
+<div class="sol"><span class="qn">4.8</span>
+<pre>long tz(unsigned long x) {
+  long c = 0;
+  if (x == 0) return 0;          // je .L4 (otherwise the loop would never end)
+  while ((x &amp; 1) == 0) {         // testq $1 ; je .L3  → continue while bit 0 is 0
+    x &gt;&gt;= 1;  c++;
+  }
+  return c;
+}
+It counts the trailing zero bits.  tz(8) = 3 (1000₂), tz(12) = 2 (1100₂)</pre>
+Note: <code>testq $1,%rdi ; je</code> jumps when x &amp; 1 == 0, which is the condition for continuing the loop.</div>
+
+<div class="sol"><span class="qn">4.9</span>
+<pre>(a) for (i = 8; i != 0; i--) { val = (val &lt;&lt; 4) | (x &amp; 0xF); x &gt;&gt;= 4; }
+(b) i starts at 8, so the compiler knows the test i != 0 is true the first time.
+    It drops the guard and builds a plain do-while.
+(c) It takes the low 8 hex digits of x and outputs them in reverse order:
+    f(0x12345678) = 0x87654321.</pre></div>
+
+<div class="sol"><span class="qn">4.10</span>
+<pre>k = 2 (subq $2), max index 4 → cases 2..6
+index  case  label  block
+0      2     .L3    return 2*y
+1      3     .L6    default (missing case)
+2      4     .L5    y += 10, then FALLS INTO .L7
+3      5     .L3    shared with case 2
+4      6     .L7    return y - 1
+switch (x) {
+  case 2: case 5:  return 2*y;
+  case 4:          y = y + 10;   /* fall through */
+  case 6:          return y - 1;
+  default:         return 0;
+}
+s(4,5) = (5+10) − 1 = 14;   s(6,5) = 4;   s(3,5) = 0 (missing → default)</pre></div>
+
+<div class="sol"><span class="qn">4.11</span>
+<pre>addq $3 → k = −3 ; cmpq $6 → max = 6 − 3 = 3   (cases −3 .. 3)
+index: 0→−3 .L5 | 1→−2 .Ld | 2→−1 .L6 | 3→0 .L7 | 4→1 .L5 | 5→2 .Ld | 6→3 .L8
+Existing cases: −3, −1, 0, 1, 3.   Shared: −3 and 1 (.L5).   Missing: −2, 2.
+Default: x &lt; −3, x &gt; 3, x = −2, x = 2.   (x &lt; −3 makes rdi negative → huge unsigned → ja)</pre></div>
+
+<ul class="check"><li>I circle back-edges and classify the loop form.</li><li>I label INIT / BODY / UPDATE / TEST.</li><li>I read cmp operands in reverse (cmp b,a means "a ? b").</li><li>I build the index → case → label table for every switch.</li><li>I spot fall-through by a block with no jmp/ret at its end.</li></ul>

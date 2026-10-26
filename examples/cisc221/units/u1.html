@@ -1,0 +1,200 @@
+<!--METHOD-->
+<div class="method"><h4>Solving method — operand and memory questions</h4>
+<ol>
+<li><b>Classify the operand</b> before you compute anything. If it starts with <code>$</code>, it is an immediate: the answer is that number and you read no memory. A bare register (<code>%rax</code>) means its contents. Anything else (parentheses, or a bare number like <code>0x104</code>) is a <b>memory</b> operand.</li>
+<li><b>For memory, compute the address</b> with Addr = D + Rb + S·Ri. Convert everything to one base first. Displacements written without 0x are <b>decimal</b>.</li>
+<li><b>Look the address up</b> in the memory table. The value stored there is the answer.</li>
+<li>For <b>suffix</b> questions, read the size from the register that is <i>not</i> inside parentheses (8-bit names like %al, %bl, %sil → b; 16-bit like %ax, %si → w; %eXX or %rNd → l; %rXX → q).</li>
+<li>For <b>"what's wrong"</b> questions, check this list in order: memory-to-memory; immediate as destination; suffix doesn't match the register; the register doesn't exist; a 32-bit register used as an address; %rsp used as the index; scale not in {1,2,4,8}.</li>
+<li>For <b>cast moves</b> (*dp = (dest_t)*sp): if the destination is wider, sign- or zero-extend according to the <b>source</b> type. If it is narrower, load at the source size and store the low part. If the sizes are equal, use a plain mov.</li>
+</ol></div>
+
+<div class="showwork"><h4>How to show your work (what to actually write on the quiz)</h4>
+<p>For each operand, write one line: <b>kind → address computation → lookup → value</b>. For a sequence of moves, keep a <b>state table</b> with one row per instruction. A grader can award part marks only when the computation is visible.</p>
+<pre>Operand           Work                                         Value
+%rax              register                                     0x100
+$0x108            immediate (no memory read)                   0x108
+0x104             absolute address → M[0x104]                  0xAB
+9(%rax,%rdx)      Addr = 9 + 0x100 + 0x3 = 0x10C → M[0x10C]     0x11
+260(%rcx,%rdx)    260 = 0x104;  0x104 + 0x1 + 0x3 = 0x108      0x13
+                  → M[0x108]
+0xFC(,%rcx,4)     Addr = 0xFC + 4·1 = 0x100 → M[0x100]         0xFF</pre>
+<p><b>Model answer for a move trace</b> (the swap function from L09: %rdi = 0x120, %rsi = 0x100, M[0x120] = 123, M[0x100] = 456):</p>
+<pre>#  Instruction            Meaning          %rax  %rdx  M[0x120]  M[0x100]
+0  (initial)                               ?     ?     123       456
+1  movq (%rdi), %rax      t0 = *xp         123   ?     123       456
+2  movq (%rsi), %rdx      t1 = *yp         123   456   123       456
+3  movq %rdx, (%rdi)      *xp = t1         123   456   456       456
+4  movq %rax, (%rsi)      *yp = t0         123   456   456       123</pre>
+<p class="small">The "Meaning" column is the C translation. Writing it is how you turn a trace question into a "write the C" answer.</p></div>
+<div class="deck"><b>From the instructor's practice deck, also do:</b> Problem 1 (3.1), Problem 2 (3.2), Problem 3 (3.3), Problem 4 (3.4), Problem 5 (3.5). Their solutions are in the master reference, section D.</div>
+
+<!--PRACTICE-->
+<div class="q"><span class="qn">1.1</span><span class="lvl e">easy</span> For each command, name the tool that runs and the file it produces.
+<pre>(a) gcc -Og -S calc.c        (b) gcc -c calc.s        (c) gcc calc.o main.o -o calc        (d) objdump -d calc</pre>
+Then classify each item as ISA or microarchitecture: (i) the number of integer registers, (ii) a 32 KB L1 cache, (iii) that a <code>cmovle</code> instruction exists, (iv) a 3.2 GHz clock, (v) the condition-code flags, (vi) the pipeline depth.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.2</span><span class="lvl e">easy</span> Give the 4-byte, 2-byte and 1-byte names of <code>%rbx</code>, <code>%rsi</code>, <code>%r10</code> and <code>%rbp</code>.
+<div class="work s"></div></div>
+
+<div class="q"><span class="qn">1.3</span><span class="lvl e">easy</span> For each instruction, say whether it is legal. If it is, give a C analog (p and q are long *, t1 and t2 are long).
+<pre>(a) movq $5, (%rdi)     (b) movq (%rdi), (%rsi)     (c) movq %rax, %rbx
+(d) movq 8(%rdi), %rax  (e) movq %rdx, $8</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.4</span><span class="lvl m">medium</span> Memory: M[0x400] = 0x5, M[0x408] = 0x9, M[0x410] = 0xC, M[0x418] = 0x1. Registers: %rdi = 0x400, %rsi = 0x3, %rdx = 0x10. Give the value of each operand <b>with the work line</b>.
+<pre>(a) %rdx          (b) $0x408            (c) 0x410             (d) (%rdi)
+(e) 8(%rdi)       (f) (%rdi,%rdx)       (g) 2(%rdi,%rsi,2)    (h) 0x3F8(,%rsi,8)
+(i) -8(%rdi,%rdx,2)</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">1.5</span><span class="lvl m">medium</span> (a) Fill in the suffix: <code>mov %cx,(%rax)</code> · <code>mov $-1,%r11</code> · <code>mov (%rbx),%r8d</code> · <code>mov %sil,(%rdx,%rcx)</code> · <code>mov 4(%rsp),%eax</code> · <code>mov %rbp,(%rsp)</code>.<br>
+(b) Say what is wrong with each line: <code>movl %eax,%rbx</code> · <code>movw (%rdi),(%rsi)</code> · <code>movb %bl,$4</code> · <code>movq (%rax,%rsp,2),%rdx</code> · <code>movl %ebx,(%edx)</code> · <code>movq %rax,(%rdx,%rcx,5)</code>.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.6</span><span class="lvl m">medium</span> <code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give two instructions for <code>*dp = (dest_t)*sp;</code> using %rax (or part of it).
+<table><tr><th>src_t</th><th>dest_t</th></tr><tr><td>short</td><td>long</td></tr><tr><td>unsigned short</td><td>long</td></tr><tr><td>long</td><td>int</td></tr><tr><td>char</td><td>unsigned short</td></tr><tr><td>unsigned</td><td>long</td></tr><tr><td>int</td><td>short</td></tr></table>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.7</span><span class="lvl m">medium</span> Initially %rdi = 0x200, %rsi = 0x300, M[0x200] = 10, M[0x208] = 20, M[0x210] = 30, M[0x300] = 99. Trace the code below with a state table, then give the final registers and memory.
+<pre>movq (%rdi), %rax
+movq 8(%rdi), %rdx
+movq %rdx, (%rdi)
+movq %rax, 8(%rdi)
+movq (%rsi), %rcx
+movq %rcx, 16(%rdi)</pre>
+<div class="work l"></div></div>
+
+<div class="q"><span class="qn">1.8</span><span class="lvl h">harder</span> (a) Write C for this function: <code>void f(long *a, long *b)</code>, compiled to <code>movq (%rsi),%rax ; movq %rax,(%rdi) ; movq $0,(%rsi) ; ret</code>.<br>
+(b) Write the assembly for <code>void put(long *p, long v) { p[2] = v; *p = 7; }</code>.
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.9</span><span class="lvl m">medium</span> (Like 3.5.) <code>void decode2(long *xp, long *yp, long *zp)</code> with xp in %rdi, yp in %rsi and zp in %rdx. Write equivalent C.
+<pre>decode2:
+  movq (%rsi), %rax
+  movq (%rdx), %rcx
+  movq %rax, (%rdx)
+  movq (%rdi), %rax
+  movq %rcx, (%rdi)
+  movq %rax, (%rsi)
+  ret</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.10</span><span class="lvl h">harder</span> %rax starts as <code>0x1122334455667788</code>. Each line runs <b>in sequence</b>. Give %rax (or %rdx where written) after each line.
+<pre>(a) movb   $0xAA, %al
+(b) movw   $0xBBBB, %ax
+(c) movl   $0xC, %eax
+(d) movb   $-1, %al
+(e) movsbq %al, %rdx        (give %rdx)
+(f) movzbq %al, %rdx        (give %rdx)</pre>
+<div class="work m"></div></div>
+
+<div class="q"><span class="qn">1.11</span><span class="lvl m">medium</span> (3.1 style, decimal trap.) M[0x100] = 0x1, M[0x108] = 0x2, M[0x110] = 0x3, M[0x118] = 0x4. Registers: %rax = 0x100, %rcx = 0x2, %rdx = 0x8. Give each value.
+<pre>(a) 16(%rax)    (b) 0x10(%rax)    (c) 264(,%rcx,4)    (d) 0xF8(%rdx,%rcx,4)    (e) (%rax,%rdx,2)    (f) $16</pre>
+<div class="work m"></div></div>
+
+<!--SOLUTIONS-->
+<div class="sol"><span class="qn">1.1</span>
+<pre>(a) compiler        → calc.s (assembly text)
+(b) assembler       → calc.o (object code)
+(c) linker          → calc   (executable; resolves references between the .o files and libraries)
+(d) disassembler    → prints assembly reconstructed from the bytes (no file)
+ISA: (i) number of registers, (iii) cmovle exists, (v) condition-code flags
+Microarchitecture: (ii) cache size, (iv) clock speed, (vi) pipeline depth</pre>
+Reason: ISA = what the assembly programmer can see and use. Microarchitecture = how it is built.</div>
+
+<div class="sol"><span class="qn">1.2</span>
+<pre>%rbx → %ebx  %bx   %bl        %rsi → %esi   %si    %sil
+%r10 → %r10d %r10w %r10b      %rbp → %ebp   %bp    %bpl</pre></div>
+
+<div class="sol"><span class="qn">1.3</span>
+<pre>(a) legal  Imm→Mem   *p = 5;
+(b) ILLEGAL  memory→memory (needs two instructions through a register)
+(c) legal  Reg→Reg   t2 = t1;
+(d) legal  Mem→Reg   t1 = *(p + 1);   i.e.  t1 = p[1];  (8 bytes = 1 long)
+(e) ILLEGAL  immediate as destination</pre></div>
+
+<div class="sol"><span class="qn">1.4</span>
+<pre>(a) %rdx              register                                        0x10
+(b) $0x408            immediate                                       0x408
+(c) 0x410             absolute → M[0x410]                             0xC
+(d) (%rdi)            Addr = 0x400 → M[0x400]                         0x5
+(e) 8(%rdi)           Addr = 0x400 + 8 = 0x408                        0x9
+(f) (%rdi,%rdx)       Addr = 0x400 + 0x10 = 0x410                     0xC
+(g) 2(%rdi,%rsi,2)    Addr = 2 + 0x400 + 2·3 = 0x408                  0x9
+(h) 0x3F8(,%rsi,8)    Addr = 0x3F8 + 8·3 = 0x3F8 + 0x18 = 0x410       0xC
+(i) -8(%rdi,%rdx,2)   Addr = −8 + 0x400 + 2·0x10 = 0x418              0x1</pre>
+Watch: in (h), 8·3 = 24 = 0x18, and 0x3F8 + 0x18 = 0x410 (carry from the 8s digit).</div>
+
+<div class="sol"><span class="qn">1.5</span>
+<pre>(a) movw (%cx=2B)   movq (%r11)   movl (%r8d)   movb (%sil)   movl (%eax)   movq (%rbp)
+(b) movl %eax,%rbx          destination %rbx is the wrong size for movl
+    movw (%rdi),(%rsi)      memory-to-memory not allowed
+    movb %bl,$4             immediate cannot be a destination
+    movq (%rax,%rsp,2),%rdx %rsp cannot be the index register
+    movl %ebx,(%edx)        %edx (32-bit) cannot be used as an address register
+    movq %rax,(%rdx,%rcx,5) scale must be 1, 2, 4 or 8</pre></div>
+
+<div class="sol"><span class="qn">1.6</span>
+<pre>short → long            movswq (%rdi),%rax   ; movq %rax,(%rsi)   signed source → sign-extend
+unsigned short → long   movzwq (%rdi),%rax   ; movq %rax,(%rsi)   unsigned source → zero-extend
+long → int              movq   (%rdi),%rax   ; movl %eax,(%rsi)   narrower → store low 4 bytes
+char → unsigned short   movsbw (%rdi),%ax    ; movw %ax,(%rsi)    the SOURCE (char) is signed
+unsigned → long         movl   (%rdi),%eax   ; movq %rax,(%rsi)   movl zeroes the upper 32 bits,
+                                                                  so it IS the zero-extension (no movzlq)
+int → short             movl   (%rdi),%eax   ; movw %ax,(%rsi)    narrower</pre></div>
+
+<div class="sol"><span class="qn">1.7</span>
+<pre>#  Instruction           Meaning               rax  rdx  rcx  M200 M208 M210 M300
+0  initial                                     ?    ?    ?    10   20   30   99
+1  movq (%rdi),%rax      rax = M[0x200]        10   ?    ?    10   20   30   99
+2  movq 8(%rdi),%rdx     rdx = M[0x208]        10   20   ?    10   20   30   99
+3  movq %rdx,(%rdi)      M[0x200] = 20         10   20   ?    20   20   30   99
+4  movq %rax,8(%rdi)     M[0x208] = 10         10   20   ?    20   10   30   99
+5  movq (%rsi),%rcx      rcx = M[0x300]        10   20   99   20   10   30   99
+6  movq %rcx,16(%rdi)    M[0x210] = 99         10   20   99   20   10   99   99
+Final: rax = 10, rdx = 20, rcx = 99; M[0x200] = 20, M[0x208] = 10, M[0x210] = 99, M[0x300] = 99
+In C (with long *p = 0x200, long *q = 0x300): swap p[0] and p[1], then p[2] = *q.</pre></div>
+
+<div class="sol"><span class="qn">1.8</span>
+<pre>(a) movq (%rsi),%rax    # rax = *b
+    movq %rax,(%rdi)    # *a = *b
+    movq $0,(%rsi)      # *b = 0
+    C:  void f(long *a, long *b) { *a = *b; *b = 0; }
+
+(b) put:                       # p in %rdi, v in %rsi
+      movq %rsi, 16(%rdi)      # p[2] is at p + 2·8 = 16 bytes
+      movq $7, (%rdi)          # *p = 7
+      ret</pre></div>
+
+<div class="sol"><span class="qn">1.9</span>
+<pre>1 movq (%rsi),%rax     rax = *yp          → y
+2 movq (%rdx),%rcx     rcx = *zp          → z
+3 movq %rax,(%rdx)     *zp = y
+4 movq (%rdi),%rax     rax = *xp          → x   (rax reused; y no longer needed)
+5 movq %rcx,(%rdi)     *xp = z
+6 movq %rax,(%rsi)     *yp = x
+C: void decode2(long *xp, long *yp, long *zp) {
+     long x = *xp, y = *yp, z = *zp;
+     *zp = y;  *xp = z;  *yp = x;
+   }</pre>
+Showing the arrows (or the "Meaning" column) gets you the marks even if your final C is ordered a little differently.</div>
+
+<div class="sol"><span class="qn">1.10</span>
+<pre>(a) movb $0xAA,%al       0x11223344556677AA   only the low byte changes
+(b) movw $0xBBBB,%ax     0x112233445566BBBB   only the low 2 bytes change
+(c) movl $0xC,%eax       0x000000000000000C   a 32-bit write zeroes the upper 4 bytes!
+(d) movb $-1,%al         0x00000000000000FF
+(e) movsbq %al,%rdx      %rdx = 0xFFFFFFFFFFFFFFFF   (sign bit of 0xFF is 1 → fill with 1s = −1)
+(f) movzbq %al,%rdx      %rdx = 0x00000000000000FF   (fill with 0s = 255)</pre></div>
+
+<div class="sol"><span class="qn">1.11</span>
+<pre>(a) 16(%rax)         16 decimal = 0x10 → 0x110            0x3
+(b) 0x10(%rax)       0x100 + 0x10 = 0x110                 0x3
+(c) 264(,%rcx,4)     264 = 0x108; 0x108 + 4·2 = 0x110     0x3
+(d) 0xF8(%rdx,%rcx,4) 0xF8 + 0x8 + 0x8 = 0x108             0x2
+(e) (%rax,%rdx,2)    0x100 + 2·8 = 0x110                  0x3
+(f) $16              immediate                            16 (= 0x10)</pre></div>
+
+<ul class="check"><li>I can classify operands as immediate, register or memory instantly.</li><li>I convert decimal displacements to hex before adding.</li><li>I know all four names of each register.</li><li>I know the extension rule (it follows the source type) and that movl zero-extends.</li><li>I can list 6 reasons a mov is illegal.</li></ul>
