@@ -1,4 +1,4 @@
-# study-pack — my multiple-PDF study method, as a Claude skill
+# Class Study Compiler Skill — my multiple-PDF study method for Claude Code
 
 This is how I study for tests. I put all the course materials for a test in one folder: lecture slides, the instructor's practice problems and solutions, revision videos. Claude turns that folder into **five PDFs**:
 
@@ -14,7 +14,7 @@ Tests are about solving problems, so most of the pack is problems with worked, s
 
 ## Using it
 
-Install it once (below), open Claude Code in the folder with the course materials, and say:
+The repo is **Class Study Compiler Skill**; the skill inside it is called `study-pack`. Install it once (below), open Claude Code in the folder with the course materials, and say:
 
 ```
 /study-pack
@@ -31,11 +31,11 @@ or just "make me a study pack for this". It will:
 ## Install
 
 ```bash
-git clone https://github.com/IRennie74/study-pack-skill.git
+git clone https://github.com/IRennie74/Class-Study-Compiler-Skill.git
 ```
 
 ```bash
-cd study-pack-skill && ./install.sh
+cd Class-Study-Compiler-Skill && ./install.sh
 ```
 
 That copies `study-pack/` into `~/.claude/skills/study-pack`. Requirements: macOS or Linux with `poppler` (pdftotext, pdftoppm), `ffmpeg`, Python 3, and Google Chrome, Edge or Chromium. On a Mac:
