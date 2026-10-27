@@ -177,11 +177,11 @@ Answer: <span class="fill"><span class="a">(c) 3</span></span>
   salq  $4, %rax
   subq  %rdi, %rax
   ret</pre></div>
-<pre class="a">t1 = x ^ y;            // xorq: rdi = x ^ y
-t3 = t1 &amp; 0xF0F;       // andq: rdi = t1 &amp; 0xF0F
-t2 = z * 48;           // leaq: 3z, then salq 4: 3z·16 = 48z
-t4 = t2 - t3;          // subq %rdi,%rax: rax = rax - rdi</pre>
-<div class="exp">Annotate each line with what the destination register now means (the instructor's method from the revision video). "subq A, B" means B = B − A. The order is reversed compared with C, so t4 = t2 − t3, not t3 − t2. 3·16 = 48.</div>
+<pre class="a">t1 = x ^ y;            // xorq: rdi = x ^ y                 (rdi = t1)
+t2 = t1 &amp; 0xF0F;       // andq: rdi = t1 &amp; 0xF0F           (rdi = t2)
+t3 = z * 48;           // leaq: 3z, then salq 4: 3z·16 = 48z (rax = t3)
+t4 = t3 - t2;          // subq %rdi,%rax: rax = rax - rdi   (rax = t4)</pre>
+<div class="exp">Annotate each line with what the destination register now means (the instructor's method from the revision video). "subq A, B" means B = B − A. The order is reversed compared with C, so t4 = t3 − t2, not t2 − t3. 3·16 = 48.</div>
 <div class="work m"></div></div>
 
 <div class="q"><span class="qn">E4.</span> Fill in the expression. Here x is in <code>%rdi</code>, y in <code>%rsi</code> and z in <code>%rdx</code>. <span class="marks">[2]</span>
