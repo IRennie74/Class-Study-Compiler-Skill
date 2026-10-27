@@ -2,7 +2,7 @@
 # build.sh BUILD_DIR OUT_DIR PREFIX
 # Renders the study pack to PDF with headless Chrome (or Edge/Chromium).
 #   BUILD_DIR must contain: mock.html (with body class="__MODE__"), units.json, units/, wb_intro.html,
-#                           wb_outro.html, master.html, notes.html
+#                           wb_outro.html, master.html, notes.html, drill.html
 #   PREFIX e.g. "CISC221" -> 1_CISC221_Mock_Test.pdf, ...
 set -eu
 SKILL=${0:A:h:h}
@@ -35,6 +35,8 @@ if [ -f "$B/units.json" ]; then
 fi
 [ -f "$B/master.html" ] && render master.html "4_${P}_Complete_Master_Reference.pdf"
 [ -f "$B/notes.html" ]  && render notes.html  "5_${P}_Concepts_Notes.pdf"
+python3 -I "$SKILL/scripts/check_drill.py" "$B"
+render drill.html "6_${P}_QA_Drill.pdf"
 
 python3 -I "$SKILL/scripts/check_lines.py" "$B"
 for f in "$OUT"/*.pdf; do echo "$(basename "$f")  $(pdfinfo "$f" | awk '/^Pages:/{print $2}') pages"; done

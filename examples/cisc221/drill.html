@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CISC 221 Q&amp;A Drill</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="cover">
+<h1>CISC 221 — Question &amp; Answer Drill</h1>
+<div class="sub">26 test-style questions on machine-level programming, each followed immediately by its full answer: what you're looking at → the answer written out step by step → why it works. Ordered from the biggest, most likely questions to the shortest.</div>
+</div>
+<div class="note"><b>How to use this.</b> Cover the green answer box with a sheet of paper. Read the question, try it (even just the first step), then uncover the answer and follow it line by line. If something in an answer is unfamiliar, the matching card in the Workbook (PDF 3) explains it from scratch, and Unit 0 has the basics. Every answer here was checked by running it.<br>
+<b>Why this order?</b> Part A is the "fill in the C from the assembly" questions. They are worth the most and the instructor spent most of the revision video on them (Practice Problems 3.5, 3.10, 3.18, 3.21, 3.24–3.35). Part B is the table questions (3.1–3.8, 3.13, 3.36, 3.37). Part C is the shorter questions.</div>
+
+<div class="secthead pb">Part A — The big ones: "fill in the C" from assembly</div>
+
+<!-- Q1 -->
+<div class="qa"><div class="qq"><span class="qnum">Q1</span><span class="qtag">Nested if/else · Practice Problem 3.18 style · the revision video's main example</span>
+<p>Fill in the missing expressions in the C code. Here x is in %rdi, y in %rsi and z in %rdx.</p>
+<div class="two"><pre>long test(long x, long y, long z) {
+  long val = __________;
+  if (__________) {
+    if (__________)
+      val = __________;
+    else
+      val = __________;
+  } else if (__________)
+    val = __________;
+  return val;
+}</pre><pre>test:
+  leaq  (%rdi,%rdx), %rax
+  subq  %rsi, %rax
+  cmpq  $5, %rsi
+  jle   .L2
+  cmpq  %rdx, %rdi
+  jge   .L3
+  movq  %rsi, %rax
+  imulq %rdx, %rax
+  ret
+.L3:
+  movq  %rdi, %rax
+  subq  %rdx, %rax
+  ret
+.L2:
+  testq %rdi, %rdi
+  jns   .L4
+  leaq  (%rsi,%rsi,2), %rax
+.L4:
+  ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> left, C with blanks; right, the assembly made from the full C. <code>cmpq</code>/<code>testq</code> compare values; <code>jle</code>, <code>jge</code> and <code>jns</code> jump to a label (<code>.L2</code> etc.) when their condition is true; <code>ret</code> returns the value in %rax.</p>
+<pre>Step 1, register map:  x → %rdi   y → %rsi   z → %rdx      (result returned in %rax)
+
+Step 2, annotate every line:
+leaq (%rdi,%rdx),%rax     rax = x + z
+subq %rsi,%rax            rax = x + z − y      ← before any test → val = x + z − y
+cmpq $5,%rsi ; jle .L2    JUMP if y ≤ 5   │ fall through if y &gt; 5   → if (y &gt; 5)
+cmpq %rdx,%rdi ; jge .L3  JUMP if x ≥ z   │ fall through if x &lt; z   →   if (x &lt; z)
+movq %rsi,%rax
+imulq %rdx,%rax ; ret     rax = y · z                              →     val = y * z
+.L3: movq %rdi,%rax       (the x ≥ z case)
+     subq %rdx,%rax ; ret rax = x − z                         →   else val = x - z
+.L2: testq %rdi,%rdi
+     jns .L4              JUMP if x ≥ 0   │ fall through if x &lt; 0   → else if (x &lt; 0)
+     leaq (%rsi,%rsi,2)   rax = 3y                                       →   val = 3 * y
+.L4: ret                                                                 → return val
+
+Step 3, the answer:
+long val = x + z - y;
+if (y &gt; 5) {
+  if (x &lt; z) val = y * z;
+  else       val = x - z;
+} else if (x &lt; 0)
+  val = 3 * y;
+return val;
+
+Step 4, check each path:
+(1,6,2): y&gt;5, x&lt;z → 12 ✓   (5,7,2): x≥z → 3 ✓   (−1,2,3): x&lt;0 → 6 ✓   (1,2,3): → 2 ✓</pre>
+<p class="why"><b>Why:</b> the compiler jumps <i>over</i> the code for the if-part when the condition is false, so <b>each jump tests the opposite of the C condition</b>. Write both edges of every jump, and the "fall through" side gives the C test. Anything computed before the first test is the starting value of val. If a path reaches <code>ret</code> without changing %rax, val keeps that starting value.</p></div></div>
+
+<!-- Q2 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q2</span><span class="qtag">While loop (jump-to-middle, -Og) · Practice Problem 3.24 style</span>
+<p>Here a is in %rdi and b in %rsi. Fill in the C, then give lw(3, 5).</p>
+<div class="two"><pre>long lw(long a, long b) {
+  long result = ______;
+  while (______) {
+    result = ______;
+    b = ______;
+  }
+  return result;
+}</pre><pre>lw:
+  movl  $1, %eax
+  jmp   .L2
+.L3:
+  imulq %rdi, %rax
+  subq  $2, %rsi
+.L2:
+  testq %rsi, %rsi
+  jg    .L3
+  ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a while loop with blanks, and its assembly. The loop is the code between <code>.L3</code> and the jump back to it (<code>jg .L3</code>). <code>jmp .L2</code> is an unconditional jump straight to the test.</p>
+<pre>movl $1,%eax          INIT     result = 1
+jmp .L2               jump straight to the test first → "jump-to-middle" form
+.L3: imulq %rdi,%rax  BODY     result = result * a
+     subq $2,%rsi     UPDATE   b = b − 2
+.L2: testq %rsi,%rsi  TEST     compares b with 0
+     jg .L3           jumps BACK (loops again) while b &gt; 0   → while (b &gt; 0)
+
+long result = 1;
+while (b &gt; 0) { result = result * a;  b = b - 2; }
+return result;
+
+lw(3,5):  b=5 → result 3,  b=3 → 9,  b=1 → 27,  b=−1 → stop.   Answer: 27</pre>
+<p class="why"><b>Why:</b> a loop in assembly is a <b>jump backwards</b>. The backward jump happens when the loop should keep going, so <b>its condition is the while condition</b> (not the opposite, unlike if-statements). <code>testq %rsi,%rsi ; jg</code> means "if b &gt; 0". The <code>jmp</code> to the test at the start is how -Og compiles a while loop, because the test must run before the first pass.</p></div></div>
+
+<!-- Q3 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q3</span><span class="qtag">While loop (guarded-do, -O1) · Practice Problem 3.25 style</span>
+<p>n is in %rdi. (a) Which loop translation is this? (b) Write the C. (c) Give gd(10). (d) Why does the first test look different from the loop test?</p>
+<pre>gd:   testq %rdi, %rdi
+      jle   .L4
+      movl  $0, %eax
+      movl  $1, %edx
+.L3:  addq  %rdx, %rax
+      addq  %rdx, %rdx
+      cmpq  %rdi, %rdx
+      jle   .L3
+      ret
+.L4:  movl  $0, %eax
+      ret</pre></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> one function. The first two lines are a test that can skip the whole loop (jump to <code>.L4</code>). <code>.L3</code> to <code>jle .L3</code> is the loop. %rax is a running total and %rdx is a counter.</p>
+<pre>(a) guarded-do: a test before the loop (testq ; jle .L4) that skips it,
+    plus the loop's own test at the bottom.
+
+(b) testq %rdi,%rdi ; jle .L4   if n ≤ 0 → return 0         (the guard)
+    s = 0 ; i = 1                                           INIT
+    .L3: addq %rdx,%rax         s = s + i                   BODY
+         addq %rdx,%rdx         i = i + i  (i doubles)      UPDATE
+         cmpq %rdi,%rdx ; jle   loop again while i ≤ n      TEST
+    long gd(long n) {
+      long s = 0;
+      for (long i = 1; i &lt;= n; i = i * 2)
+        s += i;
+      return s;
+    }
+
+(c) gd(10): i=1 s=1 · i=2 s=3 · i=4 s=7 · i=8 s=15 · i=16 &gt; 10 stop → 15
+
+(d) The guard is the loop test "i ≤ n" with i's starting value 1 put in:
+    "1 ≤ n" means n &gt; 0, and the compiler wrote it as "n ≤ 0 → skip".</pre>
+<p class="why"><b>Why:</b> a while/for loop may need to run <b>zero</b> times. At -O1, GCC checks once up front (the guard), then uses a do-while loop that tests at the bottom. The cmp operand order is reversed: <code>cmpq %rdi,%rdx</code> compares rdx (i) with rdi (n), so jle means i ≤ n.</p></div></div>
+
+<!-- Q4 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q4</span><span class="qtag">"Describe in English what it computes" · Practice Problems 3.26/3.28 style</span>
+<p>x is an <code>unsigned long</code> in %rdi. Write the C, say in English what the function computes, and give f(13).</p>
+<pre>f:    movl  $0, %eax
+      jmp   .L2
+.L3:  movq  %rdi, %rdx
+      andl  $1, %edx
+      addq  %rdx, %rax
+      shrq  %rdi
+.L2:  testq %rdi, %rdi
+      jne   .L3
+      ret</pre></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a loop (jump-to-middle). <code>andl $1</code> keeps only the lowest bit of a value, and <code>shrq %rdi</code> shifts x right by one bit (dropping its lowest bit).</p>
+<pre>result = 0                          movl $0,%eax
+while (x != 0) {                    testq ; jne .L3
+  result += x &amp; 1;                  rdx = x &amp; 1 ; rax += rdx
+  x &gt;&gt;= 1;                          shrq %rdi
+}
+return result;
+
+Trace f(13): 13 = 1101₂
+  x=1101 → +1 → result 1 ;  x=110 → +0 → 1 ;  x=11 → +1 → 2 ;  x=1 → +1 → 3 ;  x=0 stop
+In English: it counts how many bits of x are 1 ("popcount").   f(13) = 3</pre>
+<p class="why"><b>Why:</b> <code>x &amp; 1</code> is the lowest bit (1 if x is odd). Shifting right moves every bit down one place, so each pass looks at the next bit. Adding up the low bits counts the 1s. This is the lecture's pcount example. For "describe" questions, always trace one small input in a table and look for the pattern.</p></div></div>
+
+<!-- Q5 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q5</span><span class="qtag">Switch statement with a jump table · Practice Problem 3.31 style</span>
+<p>Here x is in %rdi, y in %rsi and dest in %rdx. Fill in the switch. Then: which values of x go to default? What do sw(4,5), sw(6,5) and sw(3,5) store?</p>
+<div class="two"><pre>void sw(long x, long y, long *dest) {
+  long val;
+  switch (x) {
+    case __:  val = ______; break;
+    case __:
+    case __:  val = ______; break;
+    case __:  y = ______;
+              /* fall through */
+    case __:  val = ______; break;
+    default:  val = ______;
+  }
+  *dest = val;
+}</pre><pre>sw:   subq  $1, %rdi
+      cmpq  $5, %rdi
+      ja    .L2
+      jmp   *.L4(,%rdi,8)
+.L3:  leaq  5(%rsi), %rax
+      jmp   .L8
+.L5:  movq  %rsi, %rax
+      salq  $2, %rax
+      jmp   .L8
+.L6:  subq  $3, %rsi
+.L7:  movq  %rsi, %rax
+      imulq %rsi, %rax
+      jmp   .L8
+.L2:  movq  $-1, %rax
+.L8:  movq  %rax, (%rdx)
+      ret
+# jump table
+.L4: .quad .L3, .L5, .L2,
+           .L6, .L5, .L7</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a C switch (one choice per value of x) and its assembly. <code>.L4</code> is a <b>jump table</b>, a list of code labels, one per value. <code>jmp *.L4(,%rdi,8)</code> jumps to the label found at position %rdi in that list.</p>
+<pre>Step 1, offset and range: subq $1 → index = x − 1, so index 0 means case 1.
+        cmpq $5 ; ja → index 0..5 → cases 1..6.  Anything else → .L2 (default).
+
+Step 2, mapping table (index → case → label):
+   0 → 1 → .L3      1 → 2 → .L5      2 → 3 → .L2 (default: case 3 is missing)
+   3 → 4 → .L6      4 → 5 → .L5 (shared with case 2)      5 → 6 → .L7
+
+Step 3, translate each block:
+   .L3: val = y + 5, jump to the end          → case 1: val = y + 5; break;
+   .L5: val = y &lt;&lt; 2 = y·4, jump to the end  → case 2: case 5: val = y * 4; break;
+   .L6: y = y − 3, NO jump → runs into .L7    → case 4: y = y - 3; /* fall through */
+   .L7: val = y · y, jump to the end          → case 6: val = y * y; break;
+   .L2: val = −1                              → default: val = -1;
+
+Default values: x &lt; 1, x = 3, x &gt; 6
+   (x = 0 → index −1 → a huge unsigned number → ja → default)
+sw(4,5): y = 2, then 2·2 = 4      sw(6,5): 25      sw(3,5): −1</pre>
+<p class="why"><b>Why:</b> the jump table has a slot for <b>every</b> value in the range. A slot holding the default label is a missing case, and a label used twice means shared cases. A block that doesn't end in <code>jmp</code>/<code>ret</code> carries on into the next block: that's C's fall-through (no break). <code>ja</code> is an unsigned test, so a negative index looks huge and also goes to default.</p></div></div>
+
+<!-- Q6 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q6</span><span class="qtag">Recursion · Practice Problem 3.35 style</span>
+<p>(A) What value does the function keep in %rbx? (B) Fill in the C. (C) Give rf(6). Here x is an <code>unsigned long</code> in %rdi.</p>
+<div class="two"><pre>long rf(unsigned long x) {
+  if (__________)
+    return ______;
+  unsigned long nx = ______;
+  long rv = rf(nx);
+  return __________;
+}</pre><pre>rf:   pushq %rbx
+      movq  %rdi, %rbx
+      movl  $0, %eax
+      testq %rdi, %rdi
+      je    .L2
+      shrq  $1, %rdi
+      call  rf
+      andl  $1, %ebx
+      addq  %rbx, %rax
+.L2:  popq  %rbx
+      ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a function that calls itself (<code>call rf</code>). <code>pushq %rbx</code>/<code>popq %rbx</code> save and restore the register %rbx around the work, so it can hold a value safely while the call runs.</p>
+<pre>(A) movq %rdi,%rbx → %rbx holds x (it is needed AFTER the recursive call returns).
+
+(B) testq ; je .L2 with rax = 0   → base case: if (x == 0) return 0;
+    shrq $1,%rdi                  → nx = x &gt;&gt; 1;
+    call rf                       → rv = rf(nx)  (result in %rax)
+    andl $1,%ebx ; addq %rbx,%rax → return (x &amp; 1) + rv;
+
+    long rf(unsigned long x) {
+      if (x == 0) return 0;
+      unsigned long nx = x &gt;&gt; 1;
+      long rv = rf(nx);
+      return (x &amp; 1) + rv;
+    }
+
+(C) rf(6): 6 = 110₂ → (0) + rf(3) → (1) + rf(1) → (1) + rf(0) = 0 → total 0+1+1 = 2</pre>
+<p class="why"><b>Why:</b> every recursive function has a <b>base case</b> (a test near the top that jumps straight to ret), a <b>value saved</b> in a callee-saved register (because the recursive call may overwrite other registers), the <b>argument</b> for the next call (how %rdi changes), and a <b>combine</b> step after the call. This one counts the 1-bits recursively, like the lecture's pcount_r.</p></div></div>
+
+<!-- Q7 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q7</span><span class="qtag">Arithmetic t1–t4 · Practice Problem 3.10 style</span>
+<p>Fill in the C. Here x is in %rdi, y in %rsi and z in %rdx.</p>
+<div class="two"><pre>long arith(long x, long y, long z) {
+  long t1 = ______;
+  long t2 = ______;
+  long t3 = ______;
+  long t4 = ______;
+  return t4;
+}</pre><pre>arith:
+  andq  %rsi, %rdi
+  leaq  (%rdx,%rdx,4), %rax
+  salq  $2, %rax
+  subq  %rdi, %rax
+  sarq  $2, %rax
+  ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> straight-line code, with no jumps. Each instruction changes its <b>last</b> operand. <code>leaq (a,a,4)</code> computes a + 4a = 5a. <code>salq $2</code> shifts left by 2 (×4), and <code>sarq $2</code> shifts right by 2 (÷4, keeping the sign).</p>
+<pre>andq %rsi,%rdi           rdi = x &amp; y             → t1 = x &amp; y
+leaq (%rdx,%rdx,4),%rax  rax = 5z
+salq $2,%rax             rax = 5z · 4 = 20z      → t2 = z * 20
+subq %rdi,%rax           rax = t2 − t1           → t3 = t2 - t1   (dest − source!)
+sarq $2,%rax             rax = t3 &gt;&gt; 2           → t4 = t3 &gt;&gt; 2
+Check x=1,y=2,z=3: t1 = 1&amp;2 = 0, t2 = 60, t3 = 60, t4 = 15 ✓</pre>
+<p class="why"><b>Why:</b> write what each destination holds, in terms of x, y and z. The traps are <code>subq a,b</code> meaning b − a, and the compiler building ×20 out of a leaq (×5) and a shift (×4).</p></div></div>
+
+<!-- Q8 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q8</span><span class="qtag">Pointers · Practice Problem 3.5 style</span>
+<p><code>void decode(long *xp, long *yp, long *zp)</code>, with xp in %rdi, yp in %rsi and zp in %rdx. Write equivalent C.</p>
+<pre>movq (%rdi), %rax
+movq (%rdx), %rcx
+movq %rcx, (%rdi)
+movq (%rsi), %rcx
+movq %rax, (%rsi)
+movq %rcx, (%rdx)
+ret</pre></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> three <b>pointer</b> parameters. <code>(%rdi)</code> means "the long that xp points to" (<code>*xp</code>). A move from <code>(…)</code> into a register reads memory; a move into <code>(…)</code> writes memory.</p>
+<pre>movq (%rdi),%rax     rax = *xp     → x
+movq (%rdx),%rcx     rcx = *zp     → z
+movq %rcx,(%rdi)     *xp = z
+movq (%rsi),%rcx     rcx = *yp     → y   (rcx reused; z already stored)
+movq %rax,(%rsi)     *yp = x
+movq %rcx,(%rdx)     *zp = y
+
+void decode(long *xp, long *yp, long *zp) {
+  long x = *xp, y = *yp, z = *zp;
+  *xp = z;  *yp = x;  *zp = y;
+}</pre>
+<p class="why"><b>Why:</b> parentheses mean "go to that address". Reading first and then writing is how the compiler shuffles values between memory locations, because x86 can't copy memory to memory directly.</p></div></div>
+
+<!-- Q9 -->
+<div class="qa big"><div class="qq"><span class="qnum">Q9</span><span class="qtag">Branch + conditional move · Practice Problem 3.21 style</span>
+<p>Fill in the C. Here x is in %rdi and y in %rsi.</p>
+<div class="two"><pre>long test(long x, long y) {
+  long val = ______;
+  if (______) {
+    if (______)
+      val = ______;
+    else
+      val = ______;
+  } else if (______)
+    val = ______;
+  return val;
+}</pre><pre>test:
+  leaq   (%rdi,%rsi), %rax
+  testq  %rdi, %rdi
+  jle    .L2
+  movq   %rdi, %rax
+  subq   %rsi, %rax
+  movq   %rsi, %rdx
+  imulq  %rdi, %rdx
+  cmpq   %rsi, %rdi
+  cmovl  %rdx, %rax
+  ret
+.L2:
+  movq   %rsi, %rdx
+  negq   %rdx
+  cmpq   $3, %rsi
+  cmovg  %rdx, %rax
+  ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> like Q1, but some choices are made with <code>cmovX</code> ("conditional move": copy only if condition X holds) instead of jumps. <code>negq</code> makes a value negative (y → −y).</p>
+<pre>leaq (%rdi,%rsi),%rax       val = x + y                          (starting value)
+testq %rdi,%rdi ; jle .L2   jump if x ≤ 0 │ fall through x &gt; 0  → if (x &gt; 0)
+  rax = x − y               the value kept if the cmov does nothing → the ELSE value
+  rdx = y · x               the other candidate
+  cmpq %rsi,%rdi ; cmovl    if x &lt; y: rax = x·y
+                            → if (x &lt; y) val = x*y; else val = x - y;
+.L2: rdx = −y
+  cmpq $3,%rsi ; cmovg      if y &gt; 3: rax = −y   → else if (y &gt; 3) val = -y;
+
+long val = x + y;
+if (x &gt; 0) { if (x &lt; y) val = x * y; else val = x - y; }
+else if (y &gt; 3) val = -y;
+return val;
+Check: (2,5)=10  (5,2)=3  (−1,5)=−5  (−1,1)=0 ✓</pre>
+<p class="why"><b>Why:</b> a cmov computes <b>both</b> candidates first, then keeps one. The value already in %rax is the default, and the cmov's condition chooses the other value. So the cmov condition goes in the C if, with the cmov source as its value.</p></div></div>
+
+<div class="secthead pb">Part B — The table questions</div>
+
+<!-- Q10 -->
+<div class="qa"><div class="qq"><span class="qnum">Q10</span><span class="qtag">Operand values · Practice Problem 3.1 style</span>
+<p>Memory: 0x400: 0x10 · 0x408: 0x2A · 0x410: 0x7 · 0x418: 0xFF. Registers: %rax = 0x400, %rcx = 0x8, %rdx = 0x2. Give the value of each operand: <code>%rcx</code>, <code>0x410</code>, <code>$0x418</code>, <code>(%rax)</code>, <code>0x18(%rax)</code>, <code>(%rax,%rcx)</code>, <code>8(%rax,%rdx,4)</code>, <code>1040(,%rdx,4)</code>, <code>(%rax,%rdx,8)</code>.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a memory table (address: value) and a register table. <code>$</code> = a constant, <code>%</code> = a register, and parentheses (or a bare number) = memory. <code>D(B,I,S)</code> means the address D + B + S·I.</p>
+<pre>Operand          Kind        Work                                  Value
+%rcx             register    —                                     0x8
+0x410            memory      address 0x410                         0x7
+$0x418           constant    — (no memory read)                    0x418
+(%rax)           memory      0x400                                 0x10
+0x18(%rax)       memory      0x400 + 0x18 = 0x418                  0xFF
+(%rax,%rcx)      memory      0x400 + 0x8 = 0x408                   0x2A
+8(%rax,%rdx,4)   memory      8 + 0x400 + 4·2 = 0x410               0x7
+1040(,%rdx,4)    memory      1040 = 0x410 (decimal!); + 4·2 = 0x418  0xFF
+(%rax,%rdx,8)    memory      0x400 + 8·2 = 0x410                   0x7</pre>
+<p class="why"><b>Why:</b> first decide what kind of operand it is. For memory, compute the address, then look it up. Displacements written without 0x are decimal (1040 = 0x410).</p></div></div>
+
+<!-- Q11 -->
+<div class="qa"><div class="qq"><span class="qnum">Q11</span><span class="qtag">Instruction effects · Practice Problem 3.8 style</span>
+<p>Same memory and registers as Q10. Each instruction starts from the original state. Give the destination and its new value: <code>addq %rcx,(%rax)</code> · <code>subq %rdx,8(%rax)</code> · <code>shlq $1,(%rax,%rcx,2)</code> · <code>incq 24(%rax)</code> · <code>decq %rdx</code> · <code>subq %rcx,%rax</code> · <code>leaq 16(%rax,%rcx),%rdx</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> each instruction changes its <b>last</b> operand (the destination). If that's memory, you report the address; if it's a register, its name.</p>
+<pre>Instruction               Destination                 Old op source          New value
+addq %rcx,(%rax)          0x400                       0x10 + 0x8             0x18
+subq %rdx,8(%rax)         0x400+8 = 0x408             0x2A − 0x2             0x28
+shlq $1,(%rax,%rcx,2)     0x400+2·8 = 0x410           0x7 shifted left 1 = ·2 0xE
+incq 24(%rax)             0x400+24 = 0x418            0xFF + 1               0x100
+decq %rdx                 %rdx                        0x2 − 1                0x1
+subq %rcx,%rax            %rax                        0x400 − 0x8            0x3F8
+leaq 16(%rax,%rcx),%rdx   %rdx                        16 + 0x400 + 8         0x418  (no memory read!)</pre>
+<p class="why"><b>Why:</b> <code>op source, dest</code> means dest = dest op source. Watch hex carries (0xFF + 1 = 0x100, 0x400 − 8 = 0x3F8), and remember that leaq only computes an address and never reads memory.</p></div></div>
+
+<!-- Q12 -->
+<div class="qa"><div class="qq"><span class="qnum">Q12</span><span class="qtag">leaq formulas · Practice Problem 3.6 style</span>
+<p>%rax holds x and %rcx holds y. Give the value stored in %rdx: <code>leaq 9(%rax),%rdx</code> · <code>leaq (%rcx,%rax,2),%rdx</code> · <code>leaq (%rax,%rax,4),%rdx</code> · <code>leaq 3(%rcx,%rcx,8),%rdx</code> · <code>leaq 0x10(,%rax,8),%rdx</code> · <code>leaq -2(%rax,%rcx,4),%rdx</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> <code>leaq D(B,I,S)</code> computes the number D + B + S·I and puts it in %rdx. A missing part counts as 0.</p>
+<pre>leaq 9(%rax)            9 + x           = x + 9
+leaq (%rcx,%rax,2)      y + 2x          = 2x + y
+leaq (%rax,%rax,4)      x + 4x          = 5x
+leaq 3(%rcx,%rcx,8)     3 + y + 8y      = 9y + 3
+leaq 0x10(,%rax,8)      16 + 8x         = 8x + 16
+leaq -2(%rax,%rcx,4)    −2 + x + 4y     = x + 4y − 2</pre>
+<p class="why"><b>Why:</b> it's just the address formula used as a calculator. That's why compilers use leaq for quick sums like 3x, 5x and 9x.</p></div></div>
+
+<!-- Q13 -->
+<div class="qa"><div class="qq"><span class="qnum">Q13</span><span class="qtag">Array expressions · Practice Problem 3.37 style</span>
+<p><code>long L[]</code> starts at x<sub>L</sub>, held in %rdx, and the long i is in %rcx. For each expression give its type, its value, and assembly leaving it in %rax: <code>L+2</code> · <code>L[3]</code> · <code>&amp;L[i]</code> · <code>L[i-1]</code> · <code>L+i+1</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> L is an array of longs (8 bytes each). <code>L+k</code> and <code>&amp;L[k]</code> are <b>addresses</b> (type <code>long *</code>); <code>L[k]</code> is the <b>value</b> stored there (type <code>long</code>).</p>
+<pre>Expression   Type     Value              Assembly
+L+2          long *   x_L + 16           leaq 16(%rdx), %rax
+L[3]         long     M[x_L + 24]        movq 24(%rdx), %rax
+&amp;L[i]        long *   x_L + 8i           leaq (%rdx,%rcx,8), %rax
+L[i-1]       long     M[x_L + 8i − 8]    movq -8(%rdx,%rcx,8), %rax
+L+i+1        long *   x_L + 8i + 8       leaq 8(%rdx,%rcx,8), %rax</pre>
+<p class="why"><b>Why:</b> pointer arithmetic counts in <b>elements</b>, so +1 means +8 bytes for a long. Addresses use <code>leaq</code> (compute only); values use <code>movq</code> (read memory).</p></div></div>
+
+<!-- Q14 -->
+<div class="qa"><div class="qq"><span class="qnum">Q14</span><span class="qtag">Array sizes · Practice Problem 3.36 style</span>
+<p>Give the element size, the total size and the address of element i: <code>char C[9]; long *P[4]; int I[7]; double **D[3]; short S[5];</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> five array declarations. The type before the name is the element type; a <code>*</code> makes it a pointer.</p>
+<pre>Array          Element size   Total     &amp;element i
+char C[9]      1              9         x_C + i
+long *P[4]     8 (pointer)    32        x_P + 8i
+int I[7]       4              28        x_I + 4i
+double **D[3]  8 (pointer)    24        x_D + 8i
+short S[5]     2              10        x_S + 2i</pre>
+<p class="why"><b>Why:</b> total = element size × count. <b>Every pointer is 8 bytes</b> on x86-64, no matter what it points to.</p></div></div>
+
+<!-- Q15 -->
+<div class="qa"><div class="qq"><span class="qnum">Q15</span><span class="qtag">Casting moves · Practice Problem 3.4 style</span>
+<p><code>src_t *sp</code> is in %rdi and <code>dest_t *dp</code> is in %rsi. Give the two instructions for <code>*dp = (dest_t)*sp;</code>: char → long · unsigned short → long · int → char · long → int · unsigned char → short.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> each row converts a value from one C type to another, reading through sp and writing through dp. <code>movs</code> = move with sign-extension, <code>movz</code> = move with zero-extension; the two letters after them are the from- and to-sizes.</p>
+<pre>char → long            movsbq (%rdi),%rax ; movq %rax,(%rsi)
+                       bigger, signed source → sign-extend
+unsigned short → long  movzwq (%rdi),%rax ; movq %rax,(%rsi)
+                       bigger, unsigned source → zero-extend
+int → char             movl (%rdi),%eax   ; movb %al,(%rsi)
+                       smaller → read all, store the low byte
+long → int             movq (%rdi),%rax   ; movl %eax,(%rsi)
+                       smaller → store the low 4 bytes
+unsigned char → short  movzbw (%rdi),%ax  ; movw %ax,(%rsi)
+                       bigger, unsigned source → zero-extend</pre>
+<p class="why"><b>Why:</b> getting bigger must keep the same number. Signed values copy the sign bit into the new space, and unsigned values fill it with zeros. The <b>source</b> type decides which. Getting smaller just chops off the high bytes.</p></div></div>
+
+<!-- Q16 -->
+<div class="qa"><div class="qq"><span class="qnum">Q16</span><span class="qtag">Instruction suffixes · Practice Problem 3.2 style</span>
+<p>Fill in b, w, l or q: <code>mov__ %eax,(%rdx)</code> · <code>mov__ (%rax),%r10</code> · <code>mov__ $1,%cl</code> · <code>mov__ %si,(%rdi)</code> · <code>mov__ %r9d,%eax</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> move instructions with the size letter missing (b = 1 byte, w = 2, l = 4, q = 8). The register that is <i>not</i> inside parentheses tells you the size.</p>
+<pre>movl %eax,(%rdx)    %eax = 4 bytes
+movq (%rax),%r10    %r10 = 8 bytes   (%rax is inside ( ) → just an address)
+movb $1,%cl         %cl  = 1 byte
+movw %si,(%rdi)     %si  = 2 bytes
+movl %r9d,%eax      %r9d and %eax = 4 bytes</pre>
+<p class="why"><b>Why:</b> registers inside parentheses are addresses, which are always 8 bytes, so they say nothing about the data size.</p></div></div>
+
+<!-- Q17 -->
+<div class="qa"><div class="qq"><span class="qnum">Q17</span><span class="qtag">What's wrong with each line? · Practice Problem 3.3 style</span>
+<p><code>movq (%rax),(%rcx)</code> · <code>movb %ax,(%rdi)</code> · <code>movl $3,$4</code> · <code>movq %rax,(%rdx,%rsp)</code> · <code>movw %ax,%sl</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> each line breaks one rule, so the assembler rejects it. Name the rule.</p>
+<pre>movq (%rax),(%rcx)      both operands are memory (memory-to-memory is not allowed)
+movb %ax,(%rdi)         suffix b (1 byte) doesn't match %ax (2 bytes)
+movl $3,$4              a constant can't be the destination
+movq %rax,(%rdx,%rsp)   %rsp can't be the index register
+movw %ax,%sl            there is no register called %sl</pre>
+<p class="why"><b>Why:</b> the checklist is memory-to-memory, constant destination, size mismatch, non-existent register, 32-bit address register, %rsp as index, and scale not 1/2/4/8.</p></div></div>
+
+<!-- Q18 -->
+<div class="qa"><div class="qq"><span class="qnum">Q18</span><span class="qtag">Types from comparisons · Practice Problem 3.13 style</span>
+<p><code>int comp(data_t a, data_t b) { return a COMP b; }</code>. Give data_t and COMP for: (A) <code>cmpq %rsi,%rdi ; setg %al</code> (B) <code>cmpl %esi,%edi ; setbe %al</code> (C) <code>cmpw %si,%di ; sete %al</code> (D) <code>cmpb %sil,%dil ; setl %al</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a hidden type (data_t) and a hidden comparison (COMP). The cmp suffix gives the size. The set letter gives the comparison and whether it's signed: g/l are signed, a/b are unsigned, e is either.</p>
+<pre>     size        letter            data_t                         COMP
+(A)  q = 8       g  (signed &gt;)     long                           &gt;
+(B)  l = 4       be (unsigned ≤)   unsigned (int)                 &lt;=
+(C)  w = 2       e  (either ==)    short or unsigned short        ==
+(D)  b = 1       l  (signed &lt;)     char (signed char)             &lt;</pre>
+<p class="why"><b>Why:</b> <code>cmp b,a</code> compares a with b, read backwards, so <code>cmpq %rsi,%rdi ; setg</code> means a &gt; b.</p></div></div>
+
+<div class="secthead pb">Part C — Shorter questions</div>
+
+<!-- Q19 -->
+<div class="qa"><div class="qq"><span class="qnum">Q19</span><span class="qtag">Struct layout (L15)</span>
+<p>For <code>struct R { short a; long b; char c; int d; };</code> give each field's offset and the total size. Then reorder the fields to make it as small as possible.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> a struct, whose fields are stored together in order. An <b>offset</b> is how many bytes from the start a field begins. Each field must start at a multiple of its own size, so gaps called <b>padding</b> appear.</p>
+<pre>Field     Size  Offset  Padding before
+a short   2     0       —
+b long    8     8       6 bytes (2..7)
+c char    1     16      —
+d int     4     20      3 bytes (17..19)
+end = 24; largest field = 8 → size must be a multiple of 8 → sizeof = 24
+Smallest: long b; int d; short a; char c;  → 8 + 4 + 2 + 1 = 15 → round up to 16</pre>
+<p class="why"><b>Why:</b> putting the biggest fields first removes the gaps. The total is rounded up to a multiple of the biggest field so that arrays of the struct stay aligned.</p></div></div>
+
+<!-- Q20 -->
+<div class="qa"><div class="qq"><span class="qnum">Q20</span><span class="qtag">2-D arrays: find the dimensions (L14)</span>
+<p>Find M and N. Here i is in %rdi and j in %rsi.</p>
+<div class="two"><pre>int P[M][N];
+int Q[N][M];
+int f(long i, long j) {
+  return P[i][j] + Q[j][i];
+}</pre><pre>f:  leaq (%rdi,%rdi,2), %rax
+    addq %rax, %rax
+    addq %rsi, %rax
+    movq %rsi, %rdx
+    salq $3, %rdx
+    subq %rsi, %rdx
+    addq %rdi, %rdx
+    movl P(,%rax,4), %eax
+    addl Q(,%rdx,4), %eax
+    ret</pre></div></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> two 2-D arrays whose sizes are hidden. For an array with C columns, element [r][c] is at index r·C + c. So the number multiplying the row index reveals the column count.</p>
+<pre>rax = 3i → 6i → 6i + j      used with P: index = i·N + j → N = 6
+rdx = j → 8j → 7j → 7j + i  used with Q: index = j·M + i → M = 7
+Answer: M = 7, N = 6</pre>
+<p class="why"><b>Why:</b> 2-D arrays are stored row after row, so moving down one row skips C elements. P is [M][N], so its rows have N columns; Q is [N][M], so its rows have M columns.</p></div></div>
+
+<!-- Q21 -->
+<div class="qa"><div class="qq"><span class="qnum">Q21</span><span class="qtag">call / ret trace (L12–13)</span>
+<p><code>4005a0: callq 400640 &lt;sq&gt;</code>, next instruction at <code>4005a5</code>. sq is <code>400640: mov %rdi,%rax</code> · <code>400643: imul %rdi,%rax</code> · <code>400647: retq</code>. Before the call, %rsp = 0x7ff0 and %rdi = 6. Fill in %rip, %rsp, the top of the stack, and %rax.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> addresses of instructions (from a disassembly). <code>callq</code> jumps into a function, and <code>retq</code> returns from it. %rip = address of the next instruction; %rsp = address of the top of the stack.</p>
+<pre>Step              %rip      %rsp     M[%rsp]    %rax
+before callq      0x4005a0  0x7ff0   —          ?
+after callq       0x400640  0x7fe8   0x4005a5   ?      (pushed the return address)
+after mov         0x400643  0x7fe8   0x4005a5   6
+after imul        0x400647  0x7fe8   0x4005a5   36
+after retq        0x4005a5  0x7ff0   —          36     (popped it back into %rip)</pre>
+<p class="why"><b>Why:</b> call = push the address of the next instruction (so %rsp goes down 8), then jump. ret = pop that address into %rip (so %rsp goes back up 8). The function's answer is in %rax.</p></div></div>
+
+<!-- Q22 -->
+<div class="qa"><div class="qq"><span class="qnum">Q22</span><span class="qtag">&amp;&amp; makes two branches · Practice Problem 3.16 style</span>
+<p>For <code>void set(long *p, long v) { if (p &amp;&amp; *p != v) *p = v; }</code>, with p in %rdi and v in %rsi: (A) write a goto version, (B) write the assembly, (C) explain why there are two conditional jumps.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> <code>&amp;&amp;</code> is C's "and". A <b>goto version</b> rewrites the code using only <code>if (…) goto label;</code>, the way the machine runs it.</p>
+<pre>(A) void set_goto(long *p, long v) {        (B) set:  testq %rdi,%rdi
+      if (p == 0) goto done;                          je    .L1          # p == 0 → done
+      if (*p == v) goto done;                         cmpq  %rsi,(%rdi)  # *p : v
+      *p = v;                                         je    .L1          # equal → done
+    done:                                             movq  %rsi,(%rdi)  # *p = v
+      return;                                   .L1:  ret
+    }
+(C) &amp;&amp; stops early: if p is NULL, *p must never be read. So each half of the
+    condition gets its own test and jump.</pre>
+<p class="why"><b>Why:</b> C only evaluates the second half of <code>&amp;&amp;</code> if the first half is true. That's called short-circuiting, and it's what makes <code>p &amp;&amp; *p</code> safe.</p></div></div>
+
+<!-- Q23 -->
+<div class="qa"><div class="qq"><span class="qnum">Q23</span><span class="qtag">Mystery operator · Practice Problem 3.20 style</span>
+<p><code>long arith(long x) { return x OP 32; }</code> compiles to <code>leaq 31(%rdi),%rax ; testq %rdi,%rdi ; cmovns %rdi,%rax ; sarq $5,%rax ; ret</code>. What is OP? Explain each step.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> <code>sarq $5</code> shifts right by 5, which divides by 2⁵ = 32. <code>cmovns</code> = "copy if not negative".</p>
+<pre>OP is /   (x / 32)
+leaq 31(%rdi),%rax     temp = x + 31        (31 = 32 − 1: a "bias" for negative x)
+testq ; cmovns         if x ≥ 0, temp = x   (no bias needed for positive x)
+sarq $5,%rax           temp / 32            (shift right 5 = divide by 32)
+Example: x = −33 → (−33 + 31) &gt;&gt; 5 = −2 &gt;&gt; 5 = −1  ✓ (C says −33/32 = −1)</pre>
+<p class="why"><b>Why:</b> shifting right rounds <b>down</b>, but C division rounds toward <b>zero</b>. Adding 31 first fixes the rounding for negative numbers.</p></div></div>
+
+<!-- Q24 -->
+<div class="qa"><div class="qq"><span class="qnum">Q24</span><span class="qtag">The xor idiom · Practice Problem 3.11 style</span>
+<p>Code often contains <code>xorl %eax,%eax</code> even where the C has no XOR. What does it do, and why is it used?</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> XOR of a register with itself.</p>
+<pre>x ^ x = 0 for any x, so it sets %eax (and, as a 32-bit write, all of %rax) to 0.
+It is used instead of movq $0,%rax because it is shorter to encode (2 bytes vs 7).</pre>
+<p class="why"><b>Why:</b> XOR gives 1 only where the two bits differ, and a value never differs from itself.</p></div></div>
+
+<!-- Q25 -->
+<div class="qa"><div class="qq"><span class="qnum">Q25</span><span class="qtag">Partial register writes (L09–10)</span>
+<p>%rax = 0xAABBCCDDEEFF0011. The lines run in order. Give %rax after each: <code>movb $0x22,%al</code> · <code>movw $0x3344,%ax</code> · <code>movl $0x55,%eax</code></p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> %al, %ax and %eax are the last 1, 2 and 4 bytes of %rax (see the register-names card).</p>
+<pre>movb $0x22,%al     0xAABBCCDDEEFF0022    only the last byte changes
+movw $0x3344,%ax   0xAABBCCDDEEFF3344    only the last 2 bytes change
+movl $0x55,%eax    0x0000000000000055    a 4-byte write also clears the top 4 bytes!</pre>
+<p class="why"><b>Why:</b> the "4-byte write clears the top half" rule is a special design choice of x86-64. 1- and 2-byte writes leave the rest of the register alone.</p></div></div>
+
+<!-- Q26 -->
+<div class="qa"><div class="qq"><span class="qnum">Q26</span><span class="qtag">Signed vs. unsigned bytes (background)</span>
+<p>(a) What is the byte 0xF0 as unsigned, and as signed? (b) What is 0x7F as each? (c) Write −3 as one byte in hex.</p></div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> one byte = 8 bits = 2 hex digits. "Signed" lets the same bits mean a negative number.</p>
+<pre>(a) 0xF0 = 1111 0000 → unsigned 240 · top bit 1 → signed 240 − 256 = −16
+(b) 0x7F = 0111 1111 → top bit 0 → 127 both ways
+(c) −3: count back from 0: −1 = 0xFF, −2 = 0xFE, −3 = 0xFD</pre>
+<p class="why"><b>Why:</b> signed numbers count backwards from 0 around a circle of 256 patterns. A first hex digit of 8–F means negative (if signed).</p></div></div>
+
+<div class="good" style="margin-top:12pt"><b>Done?</b> Go back to any question you couldn't start, and read the matching card in the Workbook (PDF 3). Then try the Workbook's practice sets and the Mock Test (PDF 1) without looking.</div>
+</body></html>

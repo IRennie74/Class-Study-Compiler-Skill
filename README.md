@@ -1,6 +1,6 @@
 # Class Study Compiler Skill — my multiple-PDF study method for Claude Code
 
-This is how I study for tests. I put all the course materials for a test in one folder: lecture slides, the instructor's practice problems and solutions, revision videos. Claude turns that folder into **five PDFs**:
+This is how I study for tests. I put all the course materials for a test in one folder: lecture slides, the instructor's practice problems and solutions, revision videos. Claude turns that folder into **six PDFs**:
 
 | # | PDF | What I use it for |
 |---|-----|-------------------|
@@ -9,6 +9,7 @@ This is how I study for tests. I put all the course materials for a test in one 
 | 3 | **Unit Problem Workbook** | The main one. It assumes I know **nothing**: it starts with a **Unit 0 "Start here"** that teaches the background the course takes for granted, and every unit opens with a plain-language **words and symbols** glossary. Then, for every type of problem: **how it's asked** (an example exactly as on the test) → **what I'm looking at** (every part and symbol of the question explained) → **the answer, written exactly how I should write it** → **how it works** (the full concept: what, why, diagrams, traps) → a checklist. Then 8–12 practice problems per unit, each tagged with the problem types it uses, and fully worked solutions on the next page. It ends with a mixed review set. The build refuses to produce a workbook that skips any of this. |
 | 4 | **Complete Master Reference** | Everything in one place: notes from every lecture, how the instructor solves problems, every official practice problem solved, problem types, traps, reference tables, glossary, self-test, exam checklist. Written so I can review it **or hand it to another AI** that then knows the whole course. |
 | 5 | **Concepts Notes** | Topic-by-topic explanations with worked examples and a cheat sheet. |
+| 6 | **Q&A Drill** | Question → full answer → next question, so I can work straight through and learn as I go. It starts with the **biggest problems that are most likely to appear** and finishes with the short ones. Every answer shows what I'm looking at, the answer written out step by step, and why it works. |
 
 Tests are about solving problems, so most of the pack is problems with worked, show-your-work solutions. The notes support the problems, not the other way round.
 
@@ -49,19 +50,20 @@ brew install poppler ffmpeg
 ```
 study-pack/                  the skill (what gets installed)
   SKILL.md                   the workflow Claude follows
-  references/pdf-set.md      exact spec of each of the five PDFs
+  references/pdf-set.md      exact spec of each of the six PDFs
   references/problem-writing.md   how problems & show-your-work solutions are written and verified
   scripts/extract.sh         materials → text, page images, video frames/contact sheets
   scripts/assemble.py        units.json + units/*.html → workbook.html
-  scripts/build.sh           HTML → the five PDFs (headless Chrome) + layout check
+  scripts/build.sh           HTML → the six PDFs (headless Chrome) + content/layout checks
   scripts/check_lines.py     flags code lines that would wrap badly
+  scripts/check_drill.py     fails the build if any drill question lacks its full answer
   scripts/contact_sheet.sh   one image of every page, for a quick visual check
   templates/                 style.css, mock/unit/workbook templates
 examples/cisc221/            a complete real build (Queen's CISC 221, x86-64 machine-level programming)
 install.sh
 ```
 
-`examples/cisc221` holds the HTML sources of the first pack made this way: a 13-page mock and its 17-page key, a 59-page workbook with 76 problems, a 28-page master reference and 22 pages of notes. To rebuild it:
+`examples/cisc221` holds the HTML sources of the first pack made this way: a 13-page mock and its 17-page key; a 112-page workbook (Unit 0 plus 7 units, 69 problem-type cards, 78 practice problems plus a mixed review); a 28-page master reference; 22 pages of notes; and a 20-page Q&A drill with 26 questions. To rebuild it:
 
 ```bash
 ./study-pack/scripts/build.sh examples/cisc221 /tmp/cisc221_pack CISC221

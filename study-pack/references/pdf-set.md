@@ -1,6 +1,6 @@
-# The five PDFs: what each one must contain
+# The six PDFs: what each one must contain
 
-All five are HTML files in the build folder, styled by `templates/style.css` and printed to PDF by `scripts/build.sh`.
+All six are HTML files in the build folder, styled by `templates/style.css` and printed to PDF by `scripts/build.sh`.
 File names: `N_<PREFIX>_<Name>.pdf`, where PREFIX is the course code (e.g. `CISC221`).
 
 | # | File | Source | Purpose |
@@ -10,6 +10,7 @@ File names: `N_<PREFIX>_<Name>.pdf`, where PREFIX is the course code (e.g. `CISC
 | 3 | `3_<P>_Unit_Problem_Workbook.pdf` | `units.json` + `units/uN.html` + `wb_intro/outro.html` | **The centrepiece.** Problems per unit with a method, a show-your-work model and worked solutions |
 | 4 | `4_<P>_Complete_Master_Reference.pdf` | `master.html` | Everything: for reviewing, or for handing to another AI as complete context |
 | 5 | `5_<P>_Concepts_Notes.pdf` | `notes.html` | Teaching notes: concepts and worked examples per topic |
+| 6 | `6_<P>_QA_Drill.pdf` | `drill.html` | Question → full answer → next question, ordered by likelihood (biggest, most likely first) |
 
 The user's priority: **tests are problem-solving, so problems come first.** The workbook and the mock carry most of the value. Notes support them.
 
@@ -73,3 +74,21 @@ Topic by topic: the idea → the rules to memorise → a worked example in the i
 
 ## Mock test coverage
 Every mock question must map to a workbook unit's method. The key-only scoring guide maps each Part → the workbook unit to redo.
+
+## 6. Q&A drill (question → answer, ordered by likelihood)
+
+The user asked for this explicitly: "a pdf of question, answer, question answer, that I can work through to learn the concepts … start with bigger problems that are more likely to appear."
+- **20–30 new questions**: the instructor's question types with new numbers and code (never copies of the practice problems).
+- **Order by likelihood and weight:**
+  - Part A: the big "write/fill in the code" problems the instructor stresses most;
+  - Part B: the table and medium questions;
+  - Part C: the short questions.
+
+  Say in the intro note what the ranking is based on (e.g. which official problems the revision video spent the most time on). Tag each question with its type and source style ("Practice Problem 3.18 style").
+- **Each question is followed immediately by `div.ans`**, containing in order:
+  - `p.look` "What you're looking at", which explains the question's parts and symbols for a beginner;
+  - the `<pre>` worked answer, written exactly as on the test, step by step, with a numeric check;
+  - `p.why` "Why", the idea behind it in 1–3 sentences.
+- The question box (`div.qq`) never splits across pages; long answers may flow across pages. Each Part A question after the first starts a new page (`class="qa big"`).
+- `check_drill.py` fails the build if the drill is missing, has fewer than 15 questions, lacks the Part A/B/C heads, or any answer is missing or out of order.
+- Verify every computable answer with a throwaway Python check, as for the workbook.

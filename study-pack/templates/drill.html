@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{{COURSE}} Q&amp;A Drill</title>
+<link rel="stylesheet" href="style.css"></head>
+<!-- PDF 6: the Q&A drill. Question → full answer → next question.
+     ORDER BY LIKELIHOOD: Part A = the biggest, highest-mark question types the instructor stresses most
+     (from the practice material, revision videos and past tests); Part B = table / medium questions;
+     Part C = short questions. Say in the "Why this order?" note what the ranking is based on.
+     EVERY question is followed immediately by div.ans containing, in order:
+       p.look  "What you're looking at": the parts and symbols of the question, for a beginner
+       pre     the answer written out step by step exactly as on the test (with a numeric check)
+       p.why   "Why": the idea behind it in 1–3 sentences
+     Questions are NEW (not copies of the practice problems), and every answer is verified with code.
+     check_drill.py FAILS the build if any question is missing its answer parts.
+     Mark the big Part A questions after the first with class "qa big" (each starts a new page). -->
+<body>
+<div class="cover">
+<h1>{{COURSE}} — Question &amp; Answer Drill</h1>
+<div class="sub">{{N}} test-style questions, each followed immediately by its full answer: what you're looking at → the answer written out step by step → why it works. Ordered from the biggest, most likely questions to the shortest.</div>
+</div>
+<div class="note"><b>How to use this.</b> Cover the green answer box with a sheet of paper. Read the question, try it (even just the first step), then uncover the answer and follow it line by line. If an answer is unclear, the matching card in the Workbook (PDF 3) explains it from scratch, and Unit 0 has the basics.<br>
+<b>Why this order?</b> {{what the likelihood ranking is based on: e.g. the official practice problems the instructor covered most, the revision video's emphasis, the past tests}}</div>
+
+<div class="secthead pb">Part A — {{the big, most likely question types}}</div>
+
+<div class="qa"><div class="qq"><span class="qnum">Q1</span><span class="qtag">{{type · source style, e.g. "Practice Problem 3.18 style"}}</span>
+<p>{{The question, formatted exactly like the instructor's (same wording style, tables, code layout, blanks).}}</p>
+</div>
+<div class="ans"><div class="lbl">Answer</div>
+<p class="look"><b>What you're looking at:</b> {{name each part and symbol of the question for a beginner}}</p>
+<pre>{{Step 1 … Step N: the full worked answer exactly as written on the test, ending with the final answer and a check}}</pre>
+<p class="why"><b>Why:</b> {{the idea behind it, in 1–3 sentences}}</p></div></div>
+
+<!-- next big question: <div class="qa big"> … -->
+
+<div class="secthead pb">Part B — {{table / medium questions}}</div>
+<!-- … -->
+<div class="secthead pb">Part C — {{shorter questions}}</div>
+<!-- … -->
+
+<div class="good" style="margin-top:12pt"><b>Done?</b> Go back to any question you couldn't start, and read the matching Workbook card. Then do the Workbook practice sets and the Mock Test without looking.</div>
+</body></html>

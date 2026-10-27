@@ -1,11 +1,11 @@
 ---
 name: study-pack
-description: Turn a folder of course materials (lecture slides/PDFs, practice problems with solutions, revision videos, notes) into a five-PDF study pack — a mock test, its answer key, a unit-by-unit problem workbook with show-your-work solutions, a complete master reference (also usable as context for another AI), and concepts notes. Use when the user says /study-pack, "make me a study pack", "study pack for <course>", "the multiple PDF method", "help me study for <test> from these files", or points at a folder of course materials and asks for practice tests or study notes.
+description: Turn a folder of course materials (lecture slides/PDFs, practice problems with solutions, revision videos, notes) into a six-PDF study pack — a mock test, its answer key, a unit-by-unit problem workbook with show-your-work solutions, a complete master reference (also usable as context for another AI), concepts notes, and a question→answer drill ordered by how likely each question type is. Use when the user says /study-pack, "make me a study pack", "study pack for <course>", "the multiple PDF method", "help me study for <test> from these files", or points at a folder of course materials and asks for practice tests or study notes.
 ---
 
 # Study Pack: the multiple-PDF study method
 
-The user studies for tests this way: give them the course materials, and they get **five PDFs** built from those materials. The test is about **solving problems**, so the problem PDFs (the workbook and the mock) matter most. The notes support them.
+The user studies for tests this way: give them the course materials, and they get **six PDFs** built from those materials. The test is about **solving problems**, so the problem PDFs (the workbook, the drill and the mock) matter most. The notes support them.
 
 **Assume the user knows NOTHING (non-negotiable).** Never rely on background the materials take for granted: the user has said that even looking at a problem for the first time, they have no clue what they're seeing. So:
 - Every pack starts with **Unit 0, "Start here"**: the prerequisite knowledge the course assumes, taught from zero with the same cards and practice. (For CISC 221 that was bits/bytes/hex, hex arithmetic, two's complement, CPU/registers/memory/addresses, reading one assembly line, C pointers and types, what a function looks like, and how to read a typical problem page.) Work out what a beginner would be missing for *this* course.
@@ -22,6 +22,7 @@ The user studies for tests this way: give them the course materials, and they ge
 | 3 | Unit Problem Workbook | **Centrepiece.** Starts with **Unit 0 "Start here"** (the background, from zero). Each unit opens with a **words and symbols** glossary, then one card per problem type: **how it's asked** (an example exactly as on the test) → **what you're looking at** (the question decoded) → **the answer, written exactly like this** → **how it works** (a full explanation of the concept) → **every time, do this**. Then 8–12 practice problems, each tagged with the cards it uses → worked solutions on the next page |
 | 4 | Complete Master Reference | Everything: lecture notes, the instructor's method, every official problem solved, taxonomy, traps, tables, glossary. Written so another AI could use it as full context |
 | 5 | Concepts Notes | Topic-by-topic teaching notes with worked examples and a cheat sheet |
+| 6 | Q&A Drill | Question → full answer → next question, **ordered by likelihood**: the biggest, highest-mark question types first (Part A), then table/medium questions (Part B), then short ones (Part C). Each answer has "what you're looking at", the worked answer as written on the test, and "why". The user asked for this format specifically to learn by working through. |
 
 Read `references/pdf-set.md` for the full spec of each PDF, and `references/problem-writing.md` before writing any problems. `examples/cisc221/` (next to this file once installed) is a complete reference build (CISC 221, x86-64 assembly) showing the expected depth and style.
 
@@ -60,6 +61,7 @@ Copy `templates/` into `<scratchpad>/build/`, then write:
    Then do the **audit pass**: for each problem, ask "could a student who has read only this unit's cards solve this?" If not, add a card, or move the problem. `"learn"` in units.json can optionally add notes sections as background reading.
 3. `mock.html` (from `templates/mock.html`; one source for both the test and the key). Every question must map to a workbook unit's method, and the scoring guide maps each Part to the unit to redo.
 4. `master.html` (sections A–J, as in the spec).
+5. `drill.html` (from `templates/drill.html`): 20–30 **new** questions ranked by likelihood. Base the ranking on what the instructor stresses (practice-problem coverage, revision-video time, past tests) and say so in the intro. Each question is followed immediately by its answer: `p.look` → worked `pre` → `p.why`. Verify every answer with code. The big Part A questions after the first get `class="qa big"` (a new page each).
 
 Rules:
 - Problems are **original** (the instructor's types, new numbers and code). Summaries of official problems are paraphrased, not transcribed.
@@ -68,7 +70,7 @@ Rules:
 - Use the CSS classes from `templates/style.css` (`.q .qn .lvl.e/.m/.h .work.s/m/l/xl .two .method .showwork .deck .sol .note .warn .good .part .fill .a .exp .keyonly .testonly .pb`). Don't invent new layout CSS unless it's needed.
 
 ### 5. Build and check
-- `scripts/build.sh <build_dir> <materials_dir>/Study_Pack <COURSECODE>` renders all five PDFs with headless Chrome and runs `check_lines.py`. **If the coverage check fails, fix the content (add the missing teaching/method, or retag) — never delete the check or tag problems with methods they don't really use.** Fix flagged code lines that are too long by splitting them (every flagged line in units/ and wb_*.html should be zero), or by stacking a `.two` block vertically.
+- `scripts/build.sh <build_dir> <materials_dir>/Study_Pack <COURSECODE>` renders all six PDFs with headless Chrome and runs `check_drill.py` (fails if any drill question lacks its full answer) and `check_lines.py`. **If the coverage check fails, fix the content (add the missing teaching/method, or retag) — never delete the check or tag problems with methods they don't really use.** Fix flagged code lines that are too long by splitting them (every flagged line in units/ and wb_*.html should be zero), or by stacking a `.two` block vertically.
 - `scripts/contact_sheet.sh <pdf> <png>` for each PDF; look at it. Check for blank or near-empty pages, clipped tables, and answer keys leaking into the test version. Zoom into a solution page and a mock page at ~70 dpi to confirm they are readable.
 - Confirm the test PDF shows no answers, and the key PDF shows every answer and "Why".
 - **Verify every card's example answer** with a throwaway Python check (layouts, arithmetic, traces), like the practice solutions.
@@ -76,7 +78,7 @@ Rules:
 
 ### 6. Deliver
 - Save the PDFs in `<materials_dir>/Study_Pack/`. Send them with SendUserFile (when available), with display "attach".
-- In the reply, give a short table of the five PDFs (pages, what's in each), the recommended order (workbook unit by unit → mixed review → timed mock → mark with the key), and any places where an official solution was incomplete or wrong.
+- In the reply, give a short table of the six PDFs (pages, what's in each), the recommended order (workbook Unit 0 then unit by unit → Q&A drill → mixed review → timed mock → mark with the key), and any places where an official solution was incomplete or wrong.
 - If you could not verify something (e.g. audio-only content in a video), say so.
 
 ## Defaults when the user gives no detail
